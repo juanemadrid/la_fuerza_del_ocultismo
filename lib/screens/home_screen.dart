@@ -4,6 +4,7 @@ import 'horoscopo_screen.dart';
 import 'tarot_screen.dart';
 import 'limpiezas_screen.dart';
 import 'rituales_screen.dart';
+import '../widgets/responsive_container.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -56,126 +57,129 @@ class _HomeScreenState extends State<HomeScreen> {
               
               // Contenido principal - MENÚ
               Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Título MENÚ
-                      const Center(
-                        child: Text(
-                          'MENÚ',
-                          style: TextStyle(
-                            fontSize: 36,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFFB71C1C),
-                            letterSpacing: 4,
-                            shadows: [
-                              Shadow(
-                                color: Color(0xFFB71C1C),
-                                blurRadius: 15,
-                              ),
-                            ],
+                child: ResponsiveContainer(
+                  maxWidth: 600, // Medium width for the menu
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Título MENÚ
+                        const Center(
+                          child: Text(
+                            'MENÚ',
+                            style: TextStyle(
+                              fontSize: 36,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFFB71C1C),
+                              letterSpacing: 4,
+                              shadows: [
+                                Shadow(
+                                  color: Color(0xFFB71C1C),
+                                  blurRadius: 15,
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 40),
-                      
-                      // PERFIL
-                      _buildMenuSection(
-                        icon: Icons.person_outline,
-                        title: 'PERFIL',
-                        items: [],
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => const PerfilScreen()),
-                          );
-                        },
-                      ),
-                      
-                      const SizedBox(height: 30),
-                      
-                      // HORÓSCOPO
-                      _buildMenuSection(
-                        icon: Icons.star_outline,
-                        title: 'HORÓSCOPO',
-                        items: ['Horóscopo'],
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => const HoroscopoScreen()),
-                          );
-                        },
-                      ),
-                      
-                      const SizedBox(height: 30),
-                      
-                      // TAROT
-                      _buildMenuSection(
-                        icon: Icons.auto_awesome_outlined,
-                        title: 'TAROT',
-                        items: [
-                          'pasado',
-                          'presente',
-                          'posible futuro',
-                          'pregunta directa',
-                        ],
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => const TarotScreen()),
-                          );
-                        },
-                      ),
-                      
-                      const SizedBox(height: 30),
-                      
-                      // LIMPIEZAS
-                      _buildMenuSection(
-                        icon: Icons.water_drop_outlined,
-                        title: 'LIMPIEZAS',
-                        items: [
-                          'cuerpo',
-                          'alma',
-                          'espíritu',
-                          'negocios',
-                          'Casa',
-                          'lotes',
-                          'propiedad',
-                          'vehículos',
-                        ],
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => const LimpiezasScreen()),
-                          );
-                        },
-                      ),
-                      
-                      const SizedBox(height: 30),
-                      
-                      // RITUALES
-                      _buildMenuSection(
-                        icon: Icons.auto_fix_high_outlined,
-                        title: 'RITUALES',
-                        items: [
-                          'sanación',
-                          'abre caminos',
-                          'atracción',
-                          'dinero',
-                          'trabajo o empleo',
-                          'alejarme de malas energías',
-                          'alejamiento de malos vecinos',
-                        ],
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => const RitualesScreen()),
-                          );
-                        },
-                      ),
-                    ],
+                        const SizedBox(height: 40),
+                        
+                        // PERFIL
+                        _buildMenuSection(
+                          icon: Icons.person_outline,
+                          title: 'PERFIL',
+                          items: [],
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => const PerfilScreen()),
+                            );
+                          },
+                        ),
+                        
+                        const SizedBox(height: 30),
+                        
+                        // HORÓSCOPO
+                        _buildMenuSection(
+                          icon: Icons.star_outline,
+                          title: 'HORÓSCOPO',
+                          items: ['Horóscopo'],
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => const HoroscopoScreen()),
+                            );
+                          },
+                        ),
+                        
+                        const SizedBox(height: 30),
+                        
+                        // TAROT
+                        _buildMenuSection(
+                          icon: Icons.auto_awesome_outlined,
+                          title: 'TAROT',
+                          items: [
+                            'pasado',
+                            'presente',
+                            'posible futuro',
+                            'pregunta directa',
+                          ],
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => const TarotScreen()),
+                            );
+                          },
+                        ),
+                        
+                        const SizedBox(height: 30),
+                        
+                        // LIMPIEZAS
+                        _buildMenuSection(
+                          icon: Icons.water_drop_outlined,
+                          title: 'LIMPIEZAS',
+                          items: [
+                            'cuerpo',
+                            'alma',
+                            'espíritu',
+                            'negocios',
+                            'Casa',
+                            'lotes',
+                            'propiedad',
+                            'vehículos',
+                          ],
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => const LimpiezasScreen()),
+                            );
+                          },
+                        ),
+                        
+                        const SizedBox(height: 30),
+                        
+                        // RITUALES
+                        _buildMenuSection(
+                          icon: Icons.auto_fix_high_outlined,
+                          title: 'RITUALES',
+                          items: [
+                            'sanación',
+                            'abre caminos',
+                            'atracción',
+                            'dinero',
+                            'trabajo o empleo',
+                            'alejarme de malas energías',
+                            'alejamiento de malos vecinos',
+                          ],
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => const RitualesScreen()),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),

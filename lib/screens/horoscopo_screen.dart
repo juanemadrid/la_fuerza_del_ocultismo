@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
+import '../widgets/responsive_container.dart';
 
 class HoroscopoScreen extends StatefulWidget {
   const HoroscopoScreen({super.key});
@@ -127,172 +128,175 @@ class _HoroscopoScreenState extends State<HoroscopoScreen> {
             ],
           ),
         ),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            children: [
-              const Text(
-                'Selecciona tu signo zodiacal',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 30),
-              
-              // Grid de signos
-              GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                  childAspectRatio: 0.85,
-                ),
-                itemCount: _signos.length,
-                itemBuilder: (context, index) {
-                  final signo = _signos[index];
-                  final isSelected = _signoSeleccionado == signo['nombre'];
-                  
-                  return GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _signoSeleccionado = signo['nombre'];
-                        _prediccion = '';
-                      });
-                    },
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: isSelected ? const Color(0xFFB71C1C) : Colors.white24,
-                          width: isSelected ? 3 : 1,
-                        ),
-                        color: isSelected 
-                            ? const Color(0xFFB71C1C).withOpacity(0.2)
-                            : Colors.black.withOpacity(0.3),
-                        boxShadow: isSelected ? [
-                          BoxShadow(
-                            color: const Color(0xFFB71C1C).withOpacity(0.5),
-                            blurRadius: 15,
-                            spreadRadius: 2,
-                          ),
-                        ] : [],
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            signo['icono'],
-                            style: TextStyle(
-                              fontSize: 40,
-                              color: isSelected ? const Color(0xFFB71C1C) : Colors.white,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            signo['nombre'],
-                            style: TextStyle(
-                              color: isSelected ? Colors.white : Colors.white70,
-                              fontSize: 14,
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            signo['fechas'],
-                            style: const TextStyle(
-                              color: Colors.white38,
-                              fontSize: 10,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-              
-              const SizedBox(height: 40),
-              
-              // Botón consultar
-              if (_signoSeleccionado != null)
-                SizedBox(
-                  width: double.infinity,
-                  height: 56,
-                  child: ElevatedButton(
-                    onPressed: _generarPrediccion,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFB71C1C),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: const Text(
-                      'CONSULTAR HORÓSCOPO',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1,
-                      ),
-                    ),
+        child: ResponsiveContainer(
+          maxWidth: 800, // Wider for the grid
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              children: [
+                const Text(
+                  'Selecciona tu signo zodiacal',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-              
-              // Predicción
-              if (_prediccion.isNotEmpty) ...[
+                const SizedBox(height: 30),
+                
+                // Grid de signos - Responsive
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: 150,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                    childAspectRatio: 0.85,
+                  ),
+                  itemCount: _signos.length,
+                  itemBuilder: (context, index) {
+                    final signo = _signos[index];
+                    final isSelected = _signoSeleccionado == signo['nombre'];
+                    
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _signoSeleccionado = signo['nombre'];
+                          _prediccion = '';
+                        });
+                      },
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isSelected ? const Color(0xFFB71C1C) : Colors.white24,
+                            width: isSelected ? 3 : 1,
+                          ),
+                          color: isSelected 
+                              ? const Color(0xFFB71C1C).withOpacity(0.2)
+                              : Colors.black.withOpacity(0.3),
+                          boxShadow: isSelected ? [
+                            BoxShadow(
+                              color: const Color(0xFFB71C1C).withOpacity(0.5),
+                              blurRadius: 15,
+                              spreadRadius: 2,
+                            ),
+                          ] : [],
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              signo['icono'],
+                              style: TextStyle(
+                                fontSize: 40,
+                                color: isSelected ? const Color(0xFFB71C1C) : Colors.white,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              signo['nombre'],
+                              style: TextStyle(
+                                color: isSelected ? Colors.white : Colors.white70,
+                                fontSize: 14,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              signo['fechas'],
+                              style: const TextStyle(
+                                color: Colors.white38,
+                                fontSize: 10,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                
                 const SizedBox(height: 40),
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: const Color(0xFFB71C1C),
-                      width: 2,
-                    ),
-                    color: Colors.black.withOpacity(0.5),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFFB71C1C).withOpacity(0.3),
-                        blurRadius: 20,
-                        spreadRadius: 2,
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      const Icon(
-                        Icons.auto_awesome,
-                        color: Color(0xFFB71C1C),
-                        size: 40,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Tu horóscopo para $_signoSeleccionado',
-                        style: const TextStyle(
-                          color: Color(0xFFB71C1C),
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                
+                // Botón consultar
+                if (_signoSeleccionado != null)
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: ElevatedButton(
+                      onPressed: _generarPrediccion,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFB71C1C),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      Text(
-                        _prediccion,
-                        style: const TextStyle(
-                          color: Colors.white,
+                      child: const Text(
+                        'CONSULTAR HORÓSCOPO',
+                        style: TextStyle(
                           fontSize: 16,
-                          height: 1.5,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1,
                         ),
-                        textAlign: TextAlign.center,
                       ),
-                    ],
+                    ),
                   ),
-                ),
+                
+                // Predicción
+                if (_prediccion.isNotEmpty) ...[
+                  const SizedBox(height: 40),
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: const Color(0xFFB71C1C),
+                        width: 2,
+                      ),
+                      color: Colors.black.withOpacity(0.5),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFB71C1C).withOpacity(0.3),
+                          blurRadius: 20,
+                          spreadRadius: 2,
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        const Icon(
+                          Icons.auto_awesome,
+                          color: Color(0xFFB71C1C),
+                          size: 40,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Tu horóscopo para $_signoSeleccionado',
+                          style: const TextStyle(
+                            color: Color(0xFFB71C1C),
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          _prediccion,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            height: 1.5,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),

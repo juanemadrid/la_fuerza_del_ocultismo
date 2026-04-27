@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../widgets/occult_logo.dart';
 import '../widgets/custom_text_field.dart';
 import '../widgets/custom_button.dart';
+import '../widgets/responsive_container.dart';
 import 'home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -113,99 +114,97 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           // Content
           SafeArea(
-            child: Center(
+            child: ResponsiveContainer(
+              maxWidth: 450,
               child: SingleChildScrollView(
-                child: Container(
-                  constraints: const BoxConstraints(maxWidth: 450), // Limit width on PC
-                  padding: const EdgeInsets.symmetric(horizontal: 32.0),
-                  child: Column(
-                    children: [
-                      // Spacer adjusted for responsive height
-                      const SizedBox(height: 330),
-                      
-                      // Campo Usuario
-                      const Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Usuario',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      CustomTextField(
-                        controller: _usuarioController,
-                        hintText: 'Ingresa tu usuario',
-                        prefixIcon: Icons.person_outline,
-                      ),
-                      const SizedBox(height: 16),
-                      
-                      // Campo Contraseña
-                      const Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Contraseña',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      CustomTextField(
-                        controller: _contrasenaController,
-                        hintText: 'Ingresa tu contraseña',
-                        prefixIcon: Icons.lock_outline,
-                        obscureText: _obscurePassword,
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscurePassword
-                                ? Icons.visibility_off_outlined
-                                : Icons.visibility_outlined,
-                            color: Colors.white54,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _obscurePassword = !_obscurePassword;
-                            });
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      
-                      // Botón Iniciar Sesión
-                      CustomButton(
-                        text: 'INICIAR SESIÓN',
-                        onPressed: _iniciarSesion,
-                      ),
-                      const SizedBox(height: 16),
-                      
-                      // ¿Necesitas ayuda? / Olvidé contraseña
-                      const Text(
-                        '¿Necesitas ayuda?',
+                padding: const EdgeInsets.symmetric(horizontal: 32.0),
+                child: Column(
+                  children: [
+                    // Spacer adjusted for responsive height
+                    const SizedBox(height: 330),
+                    
+                    // Campo Usuario
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Usuario',
                         style: TextStyle(
-                          color: Colors.white70,
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    CustomTextField(
+                      controller: _usuarioController,
+                      hintText: 'Ingresa tu usuario',
+                      prefixIcon: Icons.person_outline,
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Campo Contraseña
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Contraseña',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    CustomTextField(
+                      controller: _contrasenaController,
+                      hintText: 'Ingresa tu contraseña',
+                      prefixIcon: Icons.lock_outline,
+                      obscureText: _obscurePassword,
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePassword
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
+                          color: Colors.white54,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _obscurePassword = !_obscurePassword;
+                          });
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    
+                    // Botón Iniciar Sesión
+                    CustomButton(
+                      text: 'INICIAR SESIÓN',
+                      onPressed: _iniciarSesion,
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // ¿Necesitas ayuda? / Olvidé contraseña
+                    const Text(
+                      '¿Necesitas ayuda?',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: _olvidoContrasena,
+                      child: const Text(
+                        'Olvidé contraseña',
+                        style: TextStyle(
+                          color: Color(0xFFB71C1C),
                           fontSize: 14,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                      TextButton(
-                        onPressed: _olvidoContrasena,
-                        child: const Text(
-                          'Olvidé contraseña',
-                          style: TextStyle(
-                            color: Color(0xFFB71C1C),
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
                 ),
               ),
             ),
