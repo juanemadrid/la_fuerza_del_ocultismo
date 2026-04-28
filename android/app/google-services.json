@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "135659875300",
+    "project_id": "la-fuerza-del-ocultismo",
+    "storage_bucket": "la-fuerza-del-ocultismo.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:135659875300:android:0cba5a69c64d30b25775f1",
+        "android_client_info": {
+          "package_name": "com.ocultismo.la_fuerza_del_ocultismo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDp5_YiyYTv-MpcGONfoTHJlAEYkY_6QUk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

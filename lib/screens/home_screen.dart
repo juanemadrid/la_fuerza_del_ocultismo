@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../services/auth_service.dart';
+import '../services/database_service.dart';
+import '../models/user_model.dart';
+import '../widgets/responsive_container.dart';
+import 'admin/admin_dashboard.dart';
 import 'perfil_screen.dart';
 import 'horoscopo_screen.dart';
 import 'tarot_screen.dart';
 import 'limpiezas_screen.dart';
 import 'rituales_screen.dart';
-import '../widgets/responsive_container.dart';
+import 'login_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -16,19 +23,37 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
+  Future<void> _launchWhatsApp() async {
+    final link = await DatabaseService().getWhatsAppLink();
+    if (link.isNotEmpty) {
+      final url = Uri.parse(link);
+      if (await canLaunchUrl(url)) {
+        await launchUrl(url, mode: LaunchMode.externalApplication);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final authService = Provider.of<AuthService>(context);
+    final user = authService.userModel;
+
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: Colors.black,
-      drawer: _buildDrawer(),
+      drawer: _buildDrawer(context, user),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _launchWhatsApp,
+        backgroundColor: const Color(0xFF25D366),
+        child: const Icon(Icons.chat_bubble_outline, color: Colors.white),
+      ),
       body: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: RadialGradient(
             center: Alignment.topLeft,
             radius: 1.5,
             colors: [
-              const Color(0xFF1A0000),
+              Color(0xFF1A0000),
               Colors.black,
             ],
           ),
@@ -40,6 +65,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     IconButton(
                       icon: const Icon(
@@ -51,6 +77,20 @@ class _HomeScreenState extends State<HomeScreen> {
                         _scaffoldKey.currentState?.openDrawer();
                       },
                     ),
+                    if (user?.role == 'admin')
+                      IconButton(
+                        icon: const Icon(
+                          Icons.admin_panel_settings,
+                          color: Color(0xFFB71C1C),
+                          size: 32,
+                        ),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const AdminDashboard()),
+                          );
+                        },
+                      ),
                   ],
                 ),
               ),
@@ -289,12 +329,12 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildDrawer() {
+  Widget _buildDrawer(BuildContext context, UserModel? user) {
     return Drawer(
       backgroundColor: const Color(0xFF0D0D0D),
       child: Column(
         children: [
-          // Header del drawer con logo
+          // Header del drawer con logo y usuario
           Container(
             padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
             decoration: const BoxDecoration(
@@ -325,24 +365,27 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                const Text(
-                  'La Fuerza',
-                  style: TextStyle(
-                    fontSize: 20,
+                Text(
+                  user?.name ?? 'Invitado',
+                  style: const TextStyle(
+                    fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFFB71C1C),
-                    letterSpacing: 1,
+                    color: Colors.white,
                   ),
                 ),
-                const Text(
-                  'Del Ocultismo',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFFB71C1C),
-                    letterSpacing: 1,
+                if (user != null)
+                  Container(
+                    margin: const EdgeInsets.only(top: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: user.isSubscribed ? Colors.green : Colors.grey,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      user.isSubscribed ? 'SUSCRIPCIÓN ACTIVA' : 'SIN SUSCRIPCIÓN',
+                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                    ),
                   ),
-                ),
               ],
             ),
           ),
@@ -393,6 +436,18 @@ class _HomeScreenState extends State<HomeScreen> {
                     );
                   },
                 ),
+                if (user?.role == 'admin')
+                  _buildDrawerItem(
+                    icon: Icons.admin_panel_settings_outlined,
+                    title: 'ADMINISTRACIÓN',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const AdminDashboard()),
+                      );
+                    },
+                  ),
               ],
             ),
           ),
@@ -420,8 +475,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   fontSize: 14,
                 ),
               ),
-              onTap: () {
-                Navigator.of(context).popUntil((route) => route.isFirst);
+              onTap: () async {
+                await Provider.of<AuthService>(context, listen: false).signOut();
+                if (context.mounted) {
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (context) => LoginScreen()),
+                    (route) => false,
+                  );
+                }
               },
             ),
           ),

@@ -1,60 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../services/auth_service.dart';
+import '../services/database_service.dart';
+import '../models/content_file_model.dart';
+import 'pdf_viewer_screen.dart';
 
 class LimpiezasScreen extends StatelessWidget {
   const LimpiezasScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final List<Map<String, dynamic>> limpiezas = [
-      {
-        'nombre': 'Limpieza de Cuerpo',
-        'icono': Icons.person_outline,
-        'descripcion': 'Purifica tu energía física y elimina bloqueos corporales',
-        'duracion': '30 min',
-      },
-      {
-        'nombre': 'Limpieza de Alma',
-        'icono': Icons.favorite_outline,
-        'descripcion': 'Sana heridas emocionales y libera cargas del pasado',
-        'duracion': '45 min',
-      },
-      {
-        'nombre': 'Limpieza de Espíritu',
-        'icono': Icons.auto_awesome,
-        'descripcion': 'Conecta con tu esencia divina y eleva tu vibración',
-        'duracion': '60 min',
-      },
-      {
-        'nombre': 'Limpieza de Negocios',
-        'icono': Icons.business_outlined,
-        'descripcion': 'Atrae prosperidad y elimina energías negativas del trabajo',
-        'duracion': '45 min',
-      },
-      {
-        'nombre': 'Limpieza de Casa',
-        'icono': Icons.home_outlined,
-        'descripcion': 'Purifica tu hogar y crea un espacio de paz y armonía',
-        'duracion': '60 min',
-      },
-      {
-        'nombre': 'Limpieza de Lotes',
-        'icono': Icons.landscape_outlined,
-        'descripcion': 'Limpia terrenos y prepara espacios para nuevos proyectos',
-        'duracion': '90 min',
-      },
-      {
-        'nombre': 'Limpieza de Propiedad',
-        'icono': Icons.apartment_outlined,
-        'descripcion': 'Purifica propiedades completas y elimina energías estancadas',
-        'duracion': '120 min',
-      },
-      {
-        'nombre': 'Limpieza de Vehículos',
-        'icono': Icons.directions_car_outlined,
-        'descripcion': 'Protege tus viajes y elimina energías negativas del camino',
-        'duracion': '30 min',
-      },
-    ];
+    final db = DatabaseService();
+    final user = Provider.of<AuthService>(context).userModel;
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -71,105 +28,124 @@ class LimpiezasScreen extends StatelessWidget {
         iconTheme: const IconThemeData(color: Color(0xFFB71C1C)),
       ),
       body: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: RadialGradient(
             center: Alignment.topLeft,
             radius: 1.5,
             colors: [
-              const Color(0xFF1A0000),
+              Color(0xFF1A0000),
               Colors.black,
             ],
           ),
         ),
-        child: ListView.builder(
-          padding: const EdgeInsets.all(24.0),
-          itemCount: limpiezas.length,
-          itemBuilder: (context, index) {
-            final limpieza = limpiezas[index];
+        child: StreamBuilder<List<ContentFileModel>>(
+          stream: db.streamContentByCategory('limpieza'),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
             
-            return Container(
-              margin: const EdgeInsets.only(bottom: 16),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: const Color(0xFFB71C1C),
-                  width: 1,
+            final limpiezas = snapshot.data!;
+
+            if (limpiezas.isEmpty) {
+              return const Center(
+                child: Text(
+                  'No hay guías disponibles en este momento.',
+                  style: TextStyle(color: Colors.white70),
                 ),
-                color: Colors.black.withOpacity(0.5),
-              ),
-              child: ListTile(
-                contentPadding: const EdgeInsets.all(16),
-                leading: Container(
-                  padding: const EdgeInsets.all(12),
+              );
+            }
+
+            return ListView.builder(
+              padding: const EdgeInsets.all(24.0),
+              itemCount: limpiezas.length,
+              itemBuilder: (context, index) {
+                final limpieza = limpiezas[index];
+                
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
-                    shape: BoxShape.circle,
+                    borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: const Color(0xFFB71C1C),
-                      width: 2,
+                      width: 1,
                     ),
+                    color: Colors.black.withOpacity(0.5),
                   ),
-                  child: Icon(
-                    limpieza['icono'],
-                    color: const Color(0xFFB71C1C),
-                    size: 24,
-                  ),
-                ),
-                title: Text(
-                  limpieza['nombre'],
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 8),
-                    Text(
-                      limpieza['descripcion'],
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.all(16),
+                    leading: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: const Color(0xFFB71C1C),
+                          width: 2,
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.picture_as_pdf_outlined,
+                        color: Color(0xFFB71C1C),
+                        size: 24,
+                      ),
+                    ),
+                    title: Text(
+                      limpieza.title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    subtitle: Text(
+                      limpieza.description,
                       style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 13,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.access_time,
-                          color: Color(0xFFB71C1C),
-                          size: 14,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          limpieza['duracion'],
-                          style: const TextStyle(
-                            color: Color(0xFFB71C1C),
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
+                    trailing: ElevatedButton(
+                      onPressed: () {
+                        if (user?.isSubscribed ?? false) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => PdfViewerScreen(
+                                title: limpieza.title,
+                                url: limpieza.url,
+                              ),
+                            ),
+                          );
+                        } else {
+                          _mostrarAvisoSub(context);
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFB71C1C),
+                      ),
+                      child: const Text('VER GUÍA'),
                     ),
-                  ],
-                ),
-                trailing: ElevatedButton(
-                  onPressed: () {
-                    _mostrarDetalles(context, limpieza);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFB71C1C),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   ),
-                  child: const Text(
-                    'Solicitar',
-                    style: TextStyle(fontSize: 12),
-                  ),
-                ),
-              ),
+                );
+              },
             );
           },
         ),
+      ),
+    );
+  }
+
+  void _mostrarAvisoSub(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A1A),
+        title: const Text('SUSCRIPCIÓN REQUERIDA', style: TextStyle(color: Color(0xFFB71C1C))),
+        content: const Text('Esta guía es exclusiva para clientes con suscripción activa. Contacta al maestro para activarla.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('CERRAR', style: TextStyle(color: Color(0xFFB71C1C))),
+          ),
+        ],
       ),
     );
   }
