@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../services/auth_service.dart';
+import '../services/database_service.dart';
 
 class PerfilScreen extends StatefulWidget {
   const PerfilScreen({super.key});
@@ -8,10 +11,23 @@ class PerfilScreen extends StatefulWidget {
 }
 
 class _PerfilScreenState extends State<PerfilScreen> {
-  final TextEditingController _nombreController = TextEditingController(text: 'Usuario Místico');
-  final TextEditingController _emailController = TextEditingController(text: 'usuario@ocultismo.com');
-  final TextEditingController _fechaNacimientoController = TextEditingController(text: '15/03/1990');
-  final TextEditingController _signoController = TextEditingController(text: 'Piscis');
+  final TextEditingController _nombreController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _fechaNacimientoController =
+      TextEditingController(text: '15/03/1990');
+  final TextEditingController _signoController = TextEditingController();
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final user = Provider.of<AuthService>(context, listen: false).userModel;
+    if (user != null) {
+      _nombreController.text = user.name;
+      _emailController.text = user.email;
+      _signoController.text = user.zodiacSign;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,7 +61,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
           child: Column(
             children: [
               const SizedBox(height: 20),
-              
+
               // Avatar
               Container(
                 width: 120,
@@ -70,49 +86,55 @@ class _PerfilScreenState extends State<PerfilScreen> {
                   color: Color(0xFFB71C1C),
                 ),
               ),
-              
+
               const SizedBox(height: 40),
-              
+
               // Campos de perfil
-              _buildProfileField('Nombre', _nombreController, Icons.person_outline),
+              _buildProfileField(
+                  'Nombre', _nombreController, Icons.person_outline),
               const SizedBox(height: 20),
-              
-              _buildProfileField('Email', _emailController, Icons.email_outlined),
+
+              _buildProfileField(
+                  'Email', _emailController, Icons.email_outlined),
               const SizedBox(height: 20),
-              
-              _buildProfileField('Fecha de Nacimiento', _fechaNacimientoController, Icons.calendar_today_outlined),
+
+              _buildProfileField('Fecha de Nacimiento',
+                  _fechaNacimientoController, Icons.calendar_today_outlined),
               const SizedBox(height: 20),
-              
-              _buildProfileField('Signo Zodiacal', _signoController, Icons.star_outline),
+
+              _buildProfileField(
+                  'Signo Zodiacal', _signoController, Icons.star_outline),
               const SizedBox(height: 40),
-              
+
               // Botón guardar
               SizedBox(
                 width: double.infinity,
                 height: 56,
                 child: ElevatedButton(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Perfil actualizado correctamente'),
-                        backgroundColor: Color(0xFFB71C1C),
-                      ),
-                    );
-                  },
+                  onPressed: _isSaving ? null : _saveProfile,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFB71C1C),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  child: const Text(
-                    'GUARDAR CAMBIOS',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1,
-                    ),
-                  ),
+                  child: _isSaving
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text(
+                          'GUARDAR CAMBIOS',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1,
+                          ),
+                        ),
                 ),
               ),
             ],
@@ -122,7 +144,8 @@ class _PerfilScreenState extends State<PerfilScreen> {
     );
   }
 
-  Widget _buildProfileField(String label, TextEditingController controller, IconData icon) {
+  Widget _buildProfileField(
+      String label, TextEditingController controller, IconData icon) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -159,6 +182,52 @@ class _PerfilScreenState extends State<PerfilScreen> {
         ),
       ],
     );
+  }
+
+  Future<void> _saveProfile() async {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final currentUser = authService.currentUser;
+
+    if (currentUser == null) return;
+    if (_nombreController.text.trim().isEmpty ||
+        _emailController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Nombre y correo son obligatorios'),
+          backgroundColor: Color(0xFFB71C1C),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    try {
+      await DatabaseService().updateUserProfile(
+        uid: currentUser.uid,
+        name: _nombreController.text.trim(),
+        email: _emailController.text.trim(),
+        zodiacSign: _signoController.text.trim(),
+      );
+      await authService.reloadCurrentUser();
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Perfil actualizado correctamente'),
+          backgroundColor: Color(0xFFB71C1C),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se pudo guardar el perfil'),
+          backgroundColor: Color(0xFFB71C1C),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 
   @override

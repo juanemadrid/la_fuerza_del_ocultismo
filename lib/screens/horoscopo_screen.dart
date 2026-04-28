@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'dart:math';
+import 'package:provider/provider.dart';
+import '../services/auth_service.dart';
+import '../services/database_service.dart';
 import '../widgets/responsive_container.dart';
 
 class HoroscopoScreen extends StatefulWidget {
@@ -12,6 +14,8 @@ class HoroscopoScreen extends StatefulWidget {
 class _HoroscopoScreenState extends State<HoroscopoScreen> {
   String? _signoSeleccionado;
   String _prediccion = '';
+  bool _isLoading = false;
+  bool _isSignLocked = false;
 
   final List<Map<String, dynamic>> _signos = [
     {'nombre': 'Aries', 'icono': '♈', 'fechas': 'Mar 21 - Abr 19'},
@@ -28,81 +32,57 @@ class _HoroscopoScreenState extends State<HoroscopoScreen> {
     {'nombre': 'Piscis', 'icono': '♓', 'fechas': 'Feb 19 - Mar 20'},
   ];
 
-  final Map<String, List<String>> _predicciones = {
-    'Aries': [
-      'Hoy es un día propicio para tomar decisiones importantes. Tu energía está en su punto máximo.',
-      'Las estrellas te favorecen en el amor. Abre tu corazón a nuevas posibilidades.',
-      'Tu intuición te guiará hacia oportunidades financieras inesperadas.',
-    ],
-    'Tauro': [
-      'La paciencia será tu mejor aliada hoy. No te apresures en tomar decisiones.',
-      'Un encuentro fortuito podría cambiar tu perspectiva sobre una situación importante.',
-      'Es momento de invertir en ti mismo. Tu bienestar es prioritario.',
-    ],
-    'Géminis': [
-      'Tu creatividad está en su punto más alto. Aprovecha para iniciar nuevos proyectos.',
-      'La comunicación será clave hoy. Expresa tus sentimientos con claridad.',
-      'Las oportunidades laborales tocan a tu puerta. Mantén los ojos abiertos.',
-    ],
-    'Cáncer': [
-      'Tu sensibilidad te permitirá conectar profundamente con quienes te rodean.',
-      'Es un buen momento para fortalecer lazos familiares y resolver conflictos.',
-      'Confía en tu intuición, te está guiando por el camino correcto.',
-    ],
-    'Leo': [
-      'Tu carisma natural atraerá nuevas oportunidades. Brilla con luz propia.',
-      'El reconocimiento que buscas está cerca. Sigue trabajando con pasión.',
-      'En el amor, la sinceridad será tu mejor carta de presentación.',
-    ],
-    'Virgo': [
-      'Tu atención al detalle te ayudará a resolver un problema complejo.',
-      'Es momento de organizarte y establecer prioridades claras.',
-      'La salud requiere tu atención. Escucha las señales de tu cuerpo.',
-    ],
-    'Libra': [
-      'El equilibrio que buscas está más cerca de lo que piensas.',
-      'Las relaciones personales florecen bajo tu cuidado y atención.',
-      'Una decisión importante requerirá que confíes en tu juicio.',
-    ],
-    'Escorpio': [
-      'Tu intensidad emocional te llevará a descubrimientos profundos sobre ti mismo.',
-      'La transformación que buscas comienza desde dentro. Abraza el cambio.',
-      'Tu magnetismo personal está en su punto más alto. Úsalo sabiamente.',
-    ],
-    'Sagitario': [
-      'La aventura te llama. Es momento de explorar nuevos horizontes.',
-      'Tu optimismo contagioso inspirará a quienes te rodean.',
-      'Las oportunidades de crecimiento están en todas partes. Mantén la mente abierta.',
-    ],
-    'Capricornio': [
-      'Tu disciplina y perseverancia están dando frutos. Sigue adelante.',
-      'Es momento de celebrar tus logros y reconocer tu progreso.',
-      'Las metas a largo plazo requieren tu atención. Planifica con cuidado.',
-    ],
-    'Acuario': [
-      'Tu originalidad te distingue. No temas ser diferente.',
-      'Las conexiones sociales te abrirán puertas inesperadas.',
-      'Tu visión del futuro es clara. Confía en tus ideas innovadoras.',
-    ],
-    'Piscis': [
-      'Tu empatía y compasión son tus mayores fortalezas hoy.',
-      'Los sueños te revelarán mensajes importantes. Presta atención.',
-      'Es momento de dejar ir lo que ya no te sirve. Libérate.',
-    ],
-  };
+  @override
+  void initState() {
+    super.initState();
+    _checkUserSign();
+  }
+
+  void _checkUserSign() {
+    final user = Provider.of<AuthService>(context, listen: false).userModel;
+    if (user != null && user.zodiacSign.isNotEmpty) {
+      setState(() {
+        _signoSeleccionado = user.zodiacSign;
+        _isSignLocked = user.isSubscribed;
+      });
+      _cargarPrediccion(user.zodiacSign);
+    }
+  }
+
+  Future<void> _cargarPrediccion(String sign) async {
+    setState(() => _isLoading = true);
+    final horoscope = await DatabaseService().getHoroscope(sign);
+    if (mounted) {
+      setState(() {
+        _prediccion = horoscope?.prediction ??
+            'No hay predicción disponible para hoy. Consulta con el maestro.';
+        _isLoading = false;
+      });
+    }
+  }
 
   void _generarPrediccion() {
+    final user = Provider.of<AuthService>(context, listen: false).userModel;
+    if (user == null || !user.isSubscribed) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Necesitas una suscripción activa para consultar el horóscopo'),
+          backgroundColor: Color(0xFFB71C1C),
+        ),
+      );
+      return;
+    }
+
     if (_signoSeleccionado != null) {
-      final random = Random();
-      final predicciones = _predicciones[_signoSeleccionado]!;
-      setState(() {
-        _prediccion = predicciones[random.nextInt(predicciones.length)];
-      });
+      _cargarPrediccion(_signoSeleccionado!);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final user = Provider.of<AuthService>(context).userModel;
+
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -142,8 +122,17 @@ class _HoroscopoScreenState extends State<HoroscopoScreen> {
                     fontWeight: FontWeight.w500,
                   ),
                 ),
+                if (user != null && !user.isSubscribed)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 10),
+                    child: Text(
+                      'Activa tu suscripción para desbloquear el horóscopo personalizado.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                    ),
+                  ),
                 const SizedBox(height: 30),
-                
+
                 // Grid de signos - Responsive
                 GridView.builder(
                   shrinkWrap: true,
@@ -158,9 +147,10 @@ class _HoroscopoScreenState extends State<HoroscopoScreen> {
                   itemBuilder: (context, index) {
                     final signo = _signos[index];
                     final isSelected = _signoSeleccionado == signo['nombre'];
-                    
+
                     return GestureDetector(
                       onTap: () {
+                        if (_isSignLocked) return;
                         setState(() {
                           _signoSeleccionado = signo['nombre'];
                           _prediccion = '';
@@ -170,19 +160,24 @@ class _HoroscopoScreenState extends State<HoroscopoScreen> {
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: isSelected ? const Color(0xFFB71C1C) : Colors.white24,
+                            color: isSelected
+                                ? const Color(0xFFB71C1C)
+                                : Colors.white24,
                             width: isSelected ? 3 : 1,
                           ),
-                          color: isSelected 
+                          color: isSelected
                               ? const Color(0xFFB71C1C).withOpacity(0.2)
                               : Colors.black.withOpacity(0.3),
-                          boxShadow: isSelected ? [
-                            BoxShadow(
-                              color: const Color(0xFFB71C1C).withOpacity(0.5),
-                              blurRadius: 15,
-                              spreadRadius: 2,
-                            ),
-                          ] : [],
+                          boxShadow: isSelected
+                              ? [
+                                  BoxShadow(
+                                    color: const Color(0xFFB71C1C)
+                                        .withOpacity(0.5),
+                                    blurRadius: 15,
+                                    spreadRadius: 2,
+                                  ),
+                                ]
+                              : [],
                         ),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -191,16 +186,21 @@ class _HoroscopoScreenState extends State<HoroscopoScreen> {
                               signo['icono'],
                               style: TextStyle(
                                 fontSize: 40,
-                                color: isSelected ? const Color(0xFFB71C1C) : Colors.white,
+                                color: isSelected
+                                    ? const Color(0xFFB71C1C)
+                                    : Colors.white,
                               ),
                             ),
                             const SizedBox(height: 8),
                             Text(
                               signo['nombre'],
                               style: TextStyle(
-                                color: isSelected ? Colors.white : Colors.white70,
+                                color:
+                                    isSelected ? Colors.white : Colors.white70,
                                 fontSize: 14,
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
                               ),
                             ),
                             const SizedBox(height: 4),
@@ -218,33 +218,38 @@ class _HoroscopoScreenState extends State<HoroscopoScreen> {
                     );
                   },
                 ),
-                
+
                 const SizedBox(height: 40),
-                
+
                 // Botón consultar
                 if (_signoSeleccionado != null)
                   SizedBox(
                     width: double.infinity,
                     height: 56,
                     child: ElevatedButton(
-                      onPressed: _generarPrediccion,
+                      onPressed:
+                          _isLoading || (user != null && !user.isSubscribed)
+                              ? null
+                              : _generarPrediccion,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFB71C1C),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      child: const Text(
-                        'CONSULTAR HORÓSCOPO',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1,
-                        ),
-                      ),
+                      child: _isLoading
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : const Text(
+                              'CONSULTAR HORÓSCOPO',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1,
+                              ),
+                            ),
                     ),
                   ),
-                
+
                 // Predicción
                 if (_prediccion.isNotEmpty) ...[
                   const SizedBox(height: 40),

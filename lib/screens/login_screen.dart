@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import '../widgets/occult_logo.dart';
+import 'package:provider/provider.dart';
+import '../services/auth_service.dart';
+import '../widgets/responsive_container.dart';
 import '../widgets/custom_text_field.dart';
 import '../widgets/custom_button.dart';
-import '../widgets/responsive_container.dart';
 import 'home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -24,10 +25,10 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _iniciarSesion() {
+  Future<void> _iniciarSesion() async {
     String usuario = _usuarioController.text.trim();
     String contrasena = _contrasenaController.text.trim();
-    
+
     if (usuario.isEmpty || contrasena.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -38,20 +39,43 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    // Credenciales de prueba
-    if (usuario == 'leyson' && contrasena == '123') {
-      // Navegar a la pantalla principal
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Usuario o contraseña incorrectos'),
-          backgroundColor: Color(0xFFB71C1C),
-        ),
-      );
+    try {
+      final authService = Provider.of<AuthService>(context, listen: false);
+      String? loginError;
+
+      // Admin Bypass
+      if (usuario == 'leyson' && contrasena == '123') {
+        // We use a specific email for the admin in Firebase
+        loginError = await authService.signIn('admin@lafuerza.com', 'admin123');
+      } else {
+        // Normal Login (treating username as email for simplicity or fixing it)
+        String email = usuario.contains('@') ? usuario : '$usuario@cliente.com';
+        loginError = await authService.signIn(email, contrasena);
+      }
+
+      if (loginError != null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(loginError),
+              backgroundColor: const Color(0xFFB71C1C),
+            ),
+          );
+        }
+        return;
+      }
+
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${e.toString()}')),
+        );
+      }
     }
   }
 
@@ -85,7 +109,8 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      resizeToAvoidBottomInset: true, // Allow resizing to push content up when keyboard appears
+      resizeToAvoidBottomInset:
+          true, // Allow resizing to push content up when keyboard appears
       body: Stack(
         children: [
           // Background Image (Fixed)
@@ -122,7 +147,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   children: [
                     // Spacer adjusted for responsive height
                     const SizedBox(height: 330),
-                    
+
                     // Campo Usuario
                     const Align(
                       alignment: Alignment.centerLeft,
@@ -142,7 +167,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       prefixIcon: Icons.person_outline,
                     ),
                     const SizedBox(height: 16),
-                    
+
                     // Campo Contraseña
                     const Align(
                       alignment: Alignment.centerLeft,
@@ -176,14 +201,14 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    
+
                     // Botón Iniciar Sesión
                     CustomButton(
                       text: 'INICIAR SESIÓN',
                       onPressed: _iniciarSesion,
                     ),
                     const SizedBox(height: 16),
-                    
+
                     // ¿Necesitas ayuda? / Olvidé contraseña
                     const Text(
                       '¿Necesitas ayuda?',
