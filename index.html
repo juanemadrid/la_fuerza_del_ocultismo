@@ -1,46 +1,140 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <!--
-    If you are serving your web app in a path other than the root, change the
-    href value below to reflect the base path you are serving from.
-
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
-
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
-  -->
   <base href="/la_fuerza_del_ocultismo/">
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="description" content="La Fuerza del Ocultismo - Rituales, horóscopo, limpiezas y más. Tu guía espiritual en línea.">
+  <meta name="keywords" content="ocultismo, rituales, horóscopo, limpiezas, espiritual, tarot">
+  <meta name="theme-color" content="#0D0D0D">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="la_fuerza_del_ocultismo">
+  <meta name="apple-mobile-web-app-title" content="La Fuerza del Ocultismo">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>la_fuerza_del_ocultismo</title>
+  <title>La Fuerza del Ocultismo</title>
   <link rel="manifest" href="manifest.json">
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background-color: #0D0D0D;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      font-family: 'Georgia', serif;
+    }
+
+    #loading-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      color: #ffffff;
+      text-align: center;
+      padding: 20px;
+    }
+
+    #loading-screen h1 {
+      font-size: 2rem;
+      color: #B71C1C;
+      text-shadow: 0 0 20px rgba(183, 28, 28, 0.6);
+      letter-spacing: 3px;
+      text-transform: uppercase;
+    }
+
+    #loading-screen p {
+      color: #888;
+      font-size: 0.9rem;
+      letter-spacing: 2px;
+    }
+
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 3px solid rgba(183, 28, 28, 0.2);
+      border-top-color: #B71C1C;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .stars {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      overflow: hidden;
+      z-index: -1;
+    }
+
+    .star {
+      position: absolute;
+      background: white;
+      border-radius: 50%;
+      animation: twinkle 3s infinite alternate;
+    }
+
+    @keyframes twinkle {
+      0% { opacity: 0.1; }
+      100% { opacity: 0.8; }
+    }
+  </style>
 </head>
 <body>
-  <!--
-    You can customize the "flutter_bootstrap.js" script.
-    This is useful to provide a custom configuration to the Flutter loader
-    or to give the user feedback during the initialization process.
+  <!-- Estrellas de fondo -->
+  <div class="stars" id="stars"></div>
 
-    For more details:
-    * https://docs.flutter.dev/platform-integration/web/initialization
-  -->
+  <!-- Pantalla de carga -->
+  <div id="loading-screen">
+    <h1>✦ La Fuerza del Ocultismo ✦</h1>
+    <div class="spinner"></div>
+    <p>Iniciando portal místico...</p>
+  </div>
+
+  <script>
+    // Generar estrellas dinámicamente
+    const starsContainer = document.getElementById('stars');
+    for (let i = 0; i < 80; i++) {
+      const star = document.createElement('div');
+      star.classList.add('star');
+      const size = Math.random() * 2.5 + 0.5;
+      star.style.width = size + 'px';
+      star.style.height = size + 'px';
+      star.style.top = Math.random() * 100 + '%';
+      star.style.left = Math.random() * 100 + '%';
+      star.style.animationDelay = Math.random() * 3 + 's';
+      star.style.animationDuration = (Math.random() * 3 + 2) + 's';
+      starsContainer.appendChild(star);
+    }
+
+    // Ocultar pantalla de carga cuando Flutter esté listo
+    window.addEventListener('flutter-first-frame', () => {
+      const loadingScreen = document.getElementById('loading-screen');
+      if (loadingScreen) {
+        loadingScreen.style.transition = 'opacity 0.5s';
+        loadingScreen.style.opacity = '0';
+        setTimeout(() => loadingScreen.remove(), 500);
+      }
+    });
+  </script>
+
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
