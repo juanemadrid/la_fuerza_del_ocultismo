@@ -1,124 +1,214 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
-import 'dart:math' as math;
 
-class OccultLogo extends StatelessWidget {
-  const OccultLogo({super.key});
+class OccultLogo extends StatefulWidget {
+  final double size;
+  const OccultLogo({super.key, this.size = 110});
+
+  @override
+  State<OccultLogo> createState() => _OccultLogoState();
+}
+
+class _OccultLogoState extends State<OccultLogo> with TickerProviderStateMixin {
+  late AnimationController _blinkCtrl;
+  late AnimationController _pulseCtrl;
+
+  late Animation<double> _eyeOpenAmount;
+  late Animation<double> _pulseAmount;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Pulse: continuous mistic glow
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    )..repeat(reverse: true);
+
+    _pulseAmount = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
+    );
+
+    // Blink: periodically blinks (closes and opens)
+    _blinkCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 3200),
+    )..repeat();
+
+    _eyeOpenAmount = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: ConstantTween<double>(1.0),
+        weight: 85.0, // Stays open for 85% of time (approx 2.7s)
+      ),
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 1.0, end: 0.0).chain(CurveTween(curve: Curves.easeIn)),
+        weight: 5.0, // Closes quickly (approx 0.16s)
+      ),
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 0.0, end: 1.0).chain(CurveTween(curve: Curves.easeOut)),
+        weight: 10.0, // Opens back up (approx 0.32s)
+      ),
+    ]).animate(_blinkCtrl);
+  }
+
+  @override
+  void dispose() {
+    _pulseCtrl.dispose();
+    _blinkCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 180,
-      height: 180,
-      child: CustomPaint(
-        painter: OccultLogoPainter(),
-      ),
+    return AnimatedBuilder(
+      animation: Listenable.merge([_blinkCtrl, _pulseCtrl]),
+      builder: (context, _) {
+        return Container(
+          width: widget.size,
+          height: widget.size,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFB71C1C).withValues(
+                  alpha: 0.12 + 0.18 * _pulseAmount.value,
+                ),
+                blurRadius: widget.size * 0.3,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+          child: CustomPaint(
+            size: Size(widget.size, widget.size),
+            painter: _OccultLogoPainter(
+              eyeOpen: _eyeOpenAmount.value,
+              pulse: _pulseAmount.value,
+            ),
+          ),
+        );
+      },
     );
   }
 }
 
-class OccultLogoPainter extends CustomPainter {
+class _OccultLogoPainter extends CustomPainter {
+  final double eyeOpen;
+  final double pulse;
+
+  _OccultLogoPainter({required this.eyeOpen, required this.pulse});
+
   @override
   void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2;
+    final cx = size.width / 2;
+    final cy = size.height / 2;
+    final r = size.width * 0.44; // outer circle radius
 
-    // Pintura para el círculo exterior
+    // 1. Círculo exterior
     final circlePaint = Paint()
-      ..color = const Color(0xFFB71C1C)
+      ..color = const Color(0xFF8B0000)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 3;
+      ..strokeWidth = size.width * 0.012;
+    canvas.drawCircle(Offset(cx, cy), r, circlePaint);
 
-    // Círculo exterior
-    canvas.drawCircle(center, radius - 10, circlePaint);
-
-    // Marcas alrededor del círculo (como runas)
-    final markPaint = Paint()
-      ..color = const Color(0xFFB71C1C)
+    final innerR = r * 0.85;
+    final innerPaint = Paint()
+      ..color = const Color(0xFFB71C1C).withValues(alpha: 0.8)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
+      ..strokeWidth = size.width * 0.007;
+    canvas.drawCircle(Offset(cx, cy), innerR, innerPaint);
 
-    for (int i = 0; i < 24; i++) {
-      final angle = (i * 15) * math.pi / 180;
-      final startX = center.dx + (radius - 15) * math.cos(angle);
-      final startY = center.dy + (radius - 15) * math.sin(angle);
-      final endX = center.dx + (radius - 5) * math.cos(angle);
-      final endY = center.dy + (radius - 5) * math.sin(angle);
-      canvas.drawLine(Offset(startX, startY), Offset(endX, endY), markPaint);
+    // 2. Pentagrama invertido (Estrella de 5 puntas con punta hacia abajo)
+    final pts = List.generate(5, (i) {
+      final angle = (pi / 2) + (i * 4 * pi / 5);
+      return Offset(cx + innerR * cos(angle), cy + innerR * sin(angle));
+    });
+
+    final pentPaint = Paint()
+      ..color = const Color(0xFF8B0000)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = size.width * 0.012
+      ..strokeJoin = StrokeJoin.round;
+
+    final pentPath = Path();
+    pentPath.moveTo(pts[0].dx, pts[0].dy);
+    pentPath.lineTo(pts[2].dx, pts[2].dy);
+    pentPath.lineTo(pts[4].dx, pts[4].dy);
+    pentPath.lineTo(pts[1].dx, pts[1].dy);
+    pentPath.lineTo(pts[3].dx, pts[3].dy);
+    pentPath.close();
+
+    canvas.drawPath(pentPath, pentPaint);
+
+    // Brillo en los vértices del pentagrama
+    for (final pt in pts) {
+      final vtxPaint = Paint()
+        ..color = const Color(0xFFEF233C).withValues(alpha: 0.7 + 0.3 * pulse)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, size.width * 0.02);
+      canvas.drawCircle(pt, size.width * 0.022, vtxPaint);
     }
 
-    // Triángulo principal
-    final trianglePaint = Paint()
-      ..color = const Color(0xFFB71C1C)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4;
+    // 3. Ojo central que parpadea
+    final ew = size.width * 0.22; // semi-ancho del ojo
+    final eh = size.height * 0.17 * eyeOpen; // semi-alto del ojo
 
-    final triangleSize = radius * 0.7;
-    final trianglePath = Path();
-    
-    // Triángulo apuntando hacia arriba
-    trianglePath.moveTo(center.dx, center.dy - triangleSize);
-    trianglePath.lineTo(
-      center.dx - triangleSize * math.cos(math.pi / 6),
-      center.dy + triangleSize * math.sin(math.pi / 6),
-    );
-    trianglePath.lineTo(
-      center.dx + triangleSize * math.cos(math.pi / 6),
-      center.dy + triangleSize * math.sin(math.pi / 6),
-    );
-    trianglePath.close();
-    canvas.drawPath(trianglePath, trianglePaint);
+    if (eh >= 0.1) {
+      final eyePath = Path();
+      eyePath.moveTo(cx - ew, cy);
+      eyePath.cubicTo(cx - ew * 0.5, cy - eh * 1.25, cx + ew * 0.5, cy - eh * 1.25, cx + ew, cy);
+      eyePath.cubicTo(cx + ew * 0.5, cy + eh * 1.25, cx - ew * 0.5, cy + eh * 1.25, cx - ew, cy);
+      eyePath.close();
 
-    // Triángulos internos (efecto de capas)
-    for (int i = 1; i <= 2; i++) {
-      final innerSize = triangleSize - (i * 15);
-      final innerPath = Path();
-      innerPath.moveTo(center.dx, center.dy - innerSize);
-      innerPath.lineTo(
-        center.dx - innerSize * math.cos(math.pi / 6),
-        center.dy + innerSize * math.sin(math.pi / 6),
+      canvas.save();
+      canvas.clipPath(eyePath);
+
+      // Fondo negro del ojo
+      canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), Paint()..color = Colors.black);
+
+      // Iris rojo sangre gradiente
+      final irisR = eh * 0.85;
+       final irisShader = const RadialGradient(
+        colors: [
+          Color(0xFFEF233C),
+          Color(0xFF8B0000),
+          Color(0xFF3D0000),
+          Colors.black,
+        ],
+        stops: [0.0, 0.35, 0.65, 1.0],
+      ).createShader(Rect.fromCircle(center: Offset(cx, cy), radius: irisR));
+      canvas.drawCircle(Offset(cx, cy), irisR, Paint()..shader = irisShader);
+
+      // Pupila vertical de demonio/gato
+      final pupilW = irisR * (0.16 + 0.06 * pulse);
+      final pupilH = irisR * 0.8;
+      final pupilPath = Path();
+      pupilPath.addOval(Rect.fromCenter(
+        center: Offset(cx, cy),
+        width: pupilW * 2,
+        height: pupilH * 2,
+      ));
+      canvas.drawPath(pupilPath, Paint()..color = Colors.black);
+
+      // Brillos del ojo
+      canvas.drawCircle(
+        Offset(cx - irisR * 0.28, cy - irisR * 0.28),
+        irisR * 0.12,
+        Paint()..color = Colors.white.withValues(alpha: 0.6 + 0.2 * pulse),
       );
-      innerPath.lineTo(
-        center.dx + innerSize * math.cos(math.pi / 6),
-        center.dy + innerSize * math.sin(math.pi / 6),
-      );
-      innerPath.close();
-      
-      final innerPaint = Paint()
-        ..color = const Color(0xFFD32F2F).withOpacity(0.8)
+
+      canvas.restore();
+
+      // Borde del ojo
+      final outlinePaint = Paint()
+        ..color = const Color(0xFF8B0000).withValues(alpha: 0.9)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 3;
-      
-      canvas.drawPath(innerPath, innerPaint);
+        ..strokeWidth = size.width * 0.008;
+      canvas.drawPath(eyePath, outlinePaint);
     }
-
-    // Símbolos místicos en el centro
-    final symbolPaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.fill;
-
-    // Círculo central superior
-    canvas.drawCircle(Offset(center.dx, center.dy - 20), 4, symbolPaint);
-    
-    // Círculo central
-    canvas.drawCircle(center, 5, Paint()..color = const Color(0xFFB71C1C));
-    
-    // Pequeños círculos decorativos
-    canvas.drawCircle(Offset(center.dx - 15, center.dy + 10), 3, symbolPaint);
-    canvas.drawCircle(Offset(center.dx + 15, center.dy + 10), 3, symbolPaint);
-
-    // Línea horizontal en la base del triángulo
-    final basePaint = Paint()
-      ..color = const Color(0xFFB71C1C)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3;
-    
-    canvas.drawLine(
-      Offset(center.dx - triangleSize * 0.6, center.dy + triangleSize * 0.4),
-      Offset(center.dx + triangleSize * 0.6, center.dy + triangleSize * 0.4),
-      basePaint,
-    );
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _OccultLogoPainter oldDelegate) {
+    return oldDelegate.eyeOpen != eyeOpen || oldDelegate.pulse != pulse;
+  }
 }

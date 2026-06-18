@@ -4,6 +4,7 @@ import 'package:email_validator/email_validator.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/occult_logo.dart';
 import 'home_screen.dart';
 import 'membresia_vencida_screen.dart';
 import 'pending_approval_screen.dart';
@@ -244,30 +245,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       children: [
                         SizedBox(height: isSmallScreen ? 4 : 10),
                         
-                        Container(
-                          width: isSmallScreen ? 80 : 110,
-                          height: isSmallScreen ? 80 : 110,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: AppColors.primary.withOpacity(0.12),
-                            border: Border.all(
-                              color: AppColors.gold.withOpacity(0.5),
-                              width: 1.5,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.primary.withOpacity(0.3),
-                                blurRadius: isSmallScreen ? 20 : 30,
-                                spreadRadius: isSmallScreen ? 2 : 3,
-                              ),
-                            ],
-                          ),
-                          child: Icon(
-                            Icons.auto_awesome_rounded,
-                            color: AppColors.gold,
-                            size: isSmallScreen ? 38 : 56,
-                          ),
-                        ),
+                        OccultLogo(size: isSmallScreen ? 80 : 110),
                         
                         SizedBox(height: isSmallScreen ? 16 : 24),
                         
