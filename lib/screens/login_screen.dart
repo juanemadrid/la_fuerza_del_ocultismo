@@ -162,6 +162,52 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  Future<void> _iniciarSesionConGoogle() async {
+    setState(() => _loading = true);
+    try {
+      final authService = Provider.of<AuthService>(context, listen: false);
+      String? error = await authService.signInWithGoogle();
+
+      if (error != null) {
+        if (mounted) _showSnackBar(error, isError: true);
+        return;
+      }
+
+      if (mounted) {
+        int intentos = 0;
+        while (authService.userModel == null && intentos < 10) {
+          await Future.delayed(const Duration(milliseconds: 300));
+          intentos++;
+        }
+
+        final user = authService.userModel;
+
+        if (user?.role == 'admin') {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const AdminDashboard()),
+          );
+          return;
+        }
+
+        if (user == null || user.isMembershipActive) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const HomeScreen()),
+          );
+        } else if (user.pendingApproval && user.subscriptionExpiry == null) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const SelectPlanScreen()),
+          );
+        } else {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const MembresiaVencidaScreen()),
+          );
+        }
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final double screenHeight = MediaQuery.of(context).size.height;
@@ -177,13 +223,11 @@ class _LoginScreenState extends State<LoginScreen> {
           children: [
             Positioned.fill(
               child: Opacity(
-                opacity: 0.12,
+                opacity: 0.20,
                 child: Image.asset(
-                  'assets/images/background.jpeg',
+                  'assets/images/background.png',
                   fit: BoxFit.cover,
                   alignment: Alignment.topCenter,
-                  color: AppColors.primary,
-                  colorBlendMode: BlendMode.color,
                 ),
               ),
             ),
@@ -393,6 +437,41 @@ class _LoginScreenState extends State<LoginScreen> {
                                     color: AppColors.textPrimary,
                                     fontWeight: FontWeight.bold,
                                     fontSize: isSmallScreen ? 13 : 14,
+                                  ),
+                                ),
+                              ),
+                              
+                              SizedBox(height: isSmallScreen ? 10 : 14),
+
+                              // Botón Google Sign-In
+                              SizedBox(
+                                height: isSmallScreen ? 48 : 54,
+                                child: Material(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(16),
+                                    onTap: _loading ? null : _iniciarSesionConGoogle,
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Image.network(
+                                          'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg',
+                                          width: 22,
+                                          height: 22,
+                                          errorBuilder: (_, __, ___) => const Icon(Icons.g_mobiledata, size: 24),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Text(
+                                          'Continuar con Google',
+                                          style: AppTextStyles.titleMedium.copyWith(
+                                            color: const Color(0xFF3C4043),
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: isSmallScreen ? 13 : 14,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),

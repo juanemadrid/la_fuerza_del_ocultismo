@@ -234,13 +234,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
           children: [
             Positioned.fill(
               child: Opacity(
-                opacity: 0.12,
+                opacity: 0.20,
                 child: Image.asset(
-                  'assets/images/background.jpeg',
+                  'assets/images/background.png',
                   fit: BoxFit.cover,
                   alignment: Alignment.topCenter,
-                  color: AppColors.primary,
-                  colorBlendMode: BlendMode.color,
                 ),
               ),
             ),
