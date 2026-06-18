@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import 'dart:math';
 import '../models/tarot_card_model.dart';
 import '../services/database_service.dart';
+import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/paywall_modal.dart';
 
 class TarotScreen extends StatefulWidget {
   const TarotScreen({super.key});
@@ -26,6 +29,7 @@ class _TarotScreenState extends State<TarotScreen> {
       'descripcion': 'Descubre eventos que te han marcado',
       'icon': Icons.history_edu_rounded,
       'color': AppColors.primary,
+      'premium': false,
     },
     {
       'valor': 'presente',
@@ -33,6 +37,7 @@ class _TarotScreenState extends State<TarotScreen> {
       'descripcion': 'Comprende tu situación actual',
       'icon': Icons.visibility_rounded,
       'color': AppColors.primaryLight,
+      'premium': false,
     },
     {
       'valor': 'posible futuro',
@@ -40,6 +45,7 @@ class _TarotScreenState extends State<TarotScreen> {
       'descripcion': 'Vislumbra lo que puede venir (3 cartas)',
       'icon': Icons.explore_rounded,
       'color': AppColors.gold,
+      'premium': true,
     },
     {
       'valor': 'pregunta directa',
@@ -47,6 +53,7 @@ class _TarotScreenState extends State<TarotScreen> {
       'descripcion': 'Obtén respuesta a tu pregunta',
       'icon': Icons.quiz_rounded,
       'color': AppColors.teal,
+      'premium': true,
     },
   ];
 
@@ -199,6 +206,8 @@ class _TarotScreenState extends State<TarotScreen> {
   }
 
   Widget _buildContent() {
+    final isPremium = Provider.of<AuthService>(context).userModel?.isMembershipActive ?? false;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
       child: Column(
@@ -225,13 +234,25 @@ class _TarotScreenState extends State<TarotScreen> {
             itemBuilder: (context, index) {
               final tipo = _tiposLectura[index];
               final isSelected = _tipoLectura == tipo['valor'];
+              final isLocked = (tipo['premium'] as bool) && !isPremium;
               return _ReadingTypeCard(
                 tipo: tipo,
                 isSelected: isSelected,
-                onTap: () => setState(() {
-                  _tipoLectura = tipo['valor'] as String;
-                  _cartasSeleccionadas = [];
-                }),
+                isLocked: isLocked,
+                onTap: () {
+                  if (isLocked) {
+                    PaywallModal.show(
+                      context,
+                      title: 'Lectura: ${tipo['titulo']}',
+                      description: 'La lectura de ${tipo['titulo'].toLowerCase()} está reservada para miembros premium. Activa tu membresía hoy para desbloquear el poder completo del tarot.',
+                    );
+                  } else {
+                    setState(() {
+                      _tipoLectura = tipo['valor'] as String;
+                      _cartasSeleccionadas = [];
+                    });
+                  }
+                },
               );
             },
           ),
@@ -371,11 +392,13 @@ class _TarotScreenState extends State<TarotScreen> {
 class _ReadingTypeCard extends StatelessWidget {
   final Map<String, dynamic> tipo;
   final bool isSelected;
+  final bool isLocked;
   final VoidCallback onTap;
 
   const _ReadingTypeCard({
     required this.tipo,
     required this.isSelected,
+    required this.isLocked,
     required this.onTap,
   });
 
@@ -418,48 +441,70 @@ class _ReadingTypeCard extends StatelessWidget {
                   ]
                 : null,
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
+          child: Stack(
             children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? color.withOpacity(0.18)
-                      : AppColors.bgElevated,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(
-                  tipo['icon'] as IconData,
-                  color: isSelected ? color : AppColors.textMuted,
-                  size: 20,
-                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? color.withOpacity(0.18)
+                          : AppColors.bgElevated,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      tipo['icon'] as IconData,
+                      color: isSelected ? color : AppColors.textMuted,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    tipo['titulo'] as String,
+                    style: GoogleFonts.cinzel(
+                      color: isSelected
+                          ? AppColors.textPrimary
+                          : AppColors.textMuted,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    tipo['descripcion'] as String,
+                    style: GoogleFonts.inter(
+                      color: isSelected
+                          ? AppColors.textSecondary
+                          : AppColors.textMuted.withOpacity(0.55),
+                      fontSize: 10,
+                      height: 1.3,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ),
-              const SizedBox(height: 10),
-              Text(
-                tipo['titulo'] as String,
-                style: GoogleFonts.cinzel(
-                  color: isSelected
-                      ? AppColors.textPrimary
-                      : AppColors.textMuted,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+              if (isLocked)
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: AppColors.gold.withOpacity(0.15),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.gold, width: 1),
+                    ),
+                    child: const Icon(
+                      Icons.lock,
+                      color: AppColors.gold,
+                      size: 14,
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                tipo['descripcion'] as String,
-                style: GoogleFonts.inter(
-                  color: isSelected
-                      ? AppColors.textSecondary
-                      : AppColors.textMuted.withOpacity(0.55),
-                  fontSize: 10,
-                  height: 1.3,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
             ],
           ),
         ),

@@ -73,7 +73,7 @@ class _HomeScreenState extends State<HomeScreen> {
               SliverToBoxAdapter(
                 child: _buildSectionHeader(
                   'Servicios Espirituales',
-                  'Contenido premium de tu membresía',
+                  'Servicios del portal espiritual',
                 ),
               ),
               SliverPadding(
@@ -90,6 +90,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       subtitle: 'Pasado, presente, futuro y pregunta directa',
                       gradient: AppGradients.tarotCard,
                       accentColor: AppColors.primaryLight,
+                      badgeText: user?.isMembershipActive == true ? 'PREMIUM' : 'GRATIS',
+                      badgeTextColor: user?.isMembershipActive == true ? const Color(0xFF6EE7B7) : AppColors.gold,
+                      badgeColor: user?.isMembershipActive == true ? const Color(0xFF064E3B).withOpacity(0.3) : AppColors.gold.withOpacity(0.12),
+                      badgeBorderColor: user?.isMembershipActive == true ? const Color(0xFF6EE7B7).withOpacity(0.4) : AppColors.gold.withOpacity(0.4),
                       onTap: () => _open(context, const TarotScreen()),
                     ),
                     _ServiceCard(
@@ -98,6 +102,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       subtitle: 'Guía por signo y energía del día',
                       gradient: AppGradients.horoscopoCard,
                       accentColor: AppColors.primaryLight,
+                      badgeText: user?.isMembershipActive == true ? 'PREMIUM' : '1 GRATIS/MES',
+                      badgeTextColor: user?.isMembershipActive == true ? const Color(0xFF6EE7B7) : AppColors.gold,
+                      badgeColor: user?.isMembershipActive == true ? const Color(0xFF064E3B).withOpacity(0.3) : AppColors.gold.withOpacity(0.12),
+                      badgeBorderColor: user?.isMembershipActive == true ? const Color(0xFF6EE7B7).withOpacity(0.4) : AppColors.gold.withOpacity(0.4),
                       onTap: () => _open(context, const HoroscopoScreen()),
                     ),
                     _ServiceCard(
@@ -299,7 +307,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Text(
                         active
                             ? '✦  Activo · ${user!.daysRemaining} días restantes'
-                            : 'Acceso espiritual premium',
+                            : 'Plan Gratuito · Funciones básicas',
                         style: GoogleFonts.inter(
                           color: active
                               ? const Color(0xFF6EE7B7)
@@ -578,6 +586,10 @@ class _ServiceCard extends StatelessWidget {
   final String subtitle;
   final Gradient gradient;
   final Color accentColor;
+  final String? badgeText;
+  final Color? badgeTextColor;
+  final Color? badgeColor;
+  final Color? badgeBorderColor;
   final VoidCallback onTap;
 
   const _ServiceCard({
@@ -586,6 +598,10 @@ class _ServiceCard extends StatelessWidget {
     required this.subtitle,
     required this.gradient,
     required this.accentColor,
+    this.badgeText,
+    this.badgeTextColor,
+    this.badgeColor,
+    this.badgeBorderColor,
     required this.onTap,
   });
 
@@ -611,59 +627,88 @@ class _ServiceCard extends StatelessWidget {
               ),
             ],
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Stack(
             children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: accentColor.withOpacity(0.14),
-                  borderRadius: BorderRadius.circular(14),
-                  border:
-                      Border.all(color: accentColor.withOpacity(0.28)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: accentColor.withOpacity(0.22),
-                      blurRadius: 12,
-                    ),
-                  ],
-                ),
-                child: Icon(icon, color: accentColor, size: 24),
-              ),
-              const Spacer(),
-              Text(
-                title,
-                style: GoogleFonts.cinzel(
-                  color: AppColors.textPrimary,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 5),
-              Text(
-                subtitle,
-                style: GoogleFonts.inter(
-                  color: AppColors.textMuted,
-                  fontSize: 11,
-                  height: 1.4,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: accentColor.withOpacity(0.14),
+                      borderRadius: BorderRadius.circular(14),
+                      border:
+                          Border.all(color: accentColor.withOpacity(0.28)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: accentColor.withOpacity(0.22),
+                          blurRadius: 12,
+                        ),
+                      ],
+                    ),
+                    child: Icon(icon, color: accentColor, size: 24),
+                  ),
+                  const Spacer(),
                   Text(
-                    'Abrir',
-                    style: GoogleFonts.inter(
-                      color: accentColor,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
+                    title,
+                    style: GoogleFonts.cinzel(
+                      color: AppColors.textPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(width: 4),
-                  Icon(Icons.arrow_forward_rounded,
-                      color: accentColor, size: 13),
+                  const SizedBox(height: 5),
+                  Text(
+                    subtitle,
+                    style: GoogleFonts.inter(
+                      color: AppColors.textMuted,
+                      fontSize: 11,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Text(
+                        'Abrir',
+                        style: GoogleFonts.inter(
+                          color: accentColor,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(Icons.arrow_forward_rounded,
+                          color: accentColor, size: 13),
+                    ],
+                  ),
                 ],
               ),
+              if (badgeText != null)
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: badgeColor ?? AppColors.gold.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: badgeBorderColor ?? AppColors.gold.withOpacity(0.4),
+                        width: 1,
+                      ),
+                    ),
+                    child: Text(
+                      badgeText!,
+                      style: GoogleFonts.inter(
+                        color: badgeTextColor ?? AppColors.gold,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),

@@ -5,6 +5,7 @@ import '../services/auth_service.dart';
 import '../services/database_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/responsive_container.dart';
+import '../widgets/paywall_modal.dart';
 
 class HoroscopoScreen extends StatefulWidget {
   const HoroscopoScreen({super.key});
@@ -72,24 +73,30 @@ class _HoroscopoScreenState extends State<HoroscopoScreen>
     }
   }
 
-  void _generarPrediccion() {
+  Future<void> _generarPrediccion() async {
     final user = Provider.of<AuthService>(context, listen: false).userModel;
-    if (user == null || !user.isMembershipActive) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Necesitas una suscripción activa para consultar el horóscopo',
-            style: GoogleFonts.inter(color: AppColors.textPrimary),
-          ),
-          backgroundColor: AppColors.bgElevated,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      );
-      return;
-    }
-    if (_signoSeleccionado != null) {
-      _cargarPrediccion(_signoSeleccionado!);
+    if (user == null) return;
+
+    if (user.isMembershipActive) {
+      if (_signoSeleccionado != null) {
+        _cargarPrediccion(_signoSeleccionado!);
+      }
+    } else {
+      if (user.canUseHoroscopeThisMonth) {
+        if (_signoSeleccionado != null) {
+          await _cargarPrediccion(_signoSeleccionado!);
+          await DatabaseService().markFreeHoroscopeUsed(user.uid);
+          if (mounted) {
+            await Provider.of<AuthService>(context, listen: false).reloadCurrentUser();
+          }
+        }
+      } else {
+        PaywallModal.show(
+          context,
+          title: 'Predicción Agotada',
+          description: 'Ya has consultado tu predicción gratuita de este mes. Activa tu membresía premium para tener consultas ilimitadas todos los días.',
+        );
+      }
     }
   }
 
@@ -393,7 +400,7 @@ class _HoroscopoScreenState extends State<HoroscopoScreen>
             ),
           ),
           
-          if (user != null && !user.isMembershipActive) ...[
+          if (user != null && !user.isMembershipActive && !user.canUseHoroscopeThisMonth && _prediccion.isEmpty) ...[
             const SizedBox(height: 24),
             Container(
               padding: const EdgeInsets.all(24),
@@ -407,14 +414,34 @@ class _HoroscopoScreenState extends State<HoroscopoScreen>
                   const Icon(Icons.lock_outline_rounded, color: AppColors.gold, size: 36),
                   const SizedBox(height: 12),
                   Text(
-                    'Contenido Protegido',
+                    'Predicción Agotada',
                     style: AppTextStyles.titleMedium.copyWith(color: AppColors.textPrimary),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Activa tu suscripción para desbloquear el horóscopo y recibir la predicción diaria del Maestro Leyson.',
+                    'Ya has consultado tu predicción gratuita de este mes. Activa tu membresía premium para tener consultas ilimitadas todos los días.',
                     textAlign: TextAlign.center,
                     style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
+                  ),
+                  const SizedBox(height: 20),
+                  GlowButton(
+                    gradient: AppGradients.goldButton,
+                    glowColor: AppColors.gold,
+                    onPressed: () {
+                      PaywallModal.show(
+                        context,
+                        title: 'Horóscopo Premium',
+                        description: 'Activa tu membresía premium para consultar tu horóscopo diario ilimitadamente y guiar tu destino cada día.',
+                      );
+                    },
+                    child: Text(
+                      'VER PLANES PREMIUM',
+                      style: GoogleFonts.cinzel(
+                        color: Colors.black,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -430,6 +457,52 @@ class _HoroscopoScreenState extends State<HoroscopoScreen>
               )
             else if (_prediccion.isNotEmpty)
               _buildPrediccionResult()
+            else if (user != null && !user.isMembershipActive && user.canUseHoroscopeThisMonth)
+              Center(
+                child: Column(
+                  children: [
+                    const SizedBox(height: 24),
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: AppColors.bgSurface,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: AppColors.borderGold.withOpacity(0.5)),
+                      ),
+                      child: Column(
+                        children: [
+                          const Icon(Icons.auto_awesome, color: AppColors.gold, size: 40),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Predicción del Mes Disponible',
+                            style: AppTextStyles.titleMedium.copyWith(color: AppColors.textPrimary),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Tienes 1 consulta gratuita disponible para este mes calendario. Presiona el botón para revelar tu horóscopo.',
+                            textAlign: TextAlign.center,
+                            style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
+                          ),
+                          const SizedBox(height: 20),
+                          GlowButton(
+                            gradient: AppGradients.goldButton,
+                            glowColor: AppColors.gold,
+                            onPressed: _generarPrediccion,
+                            child: Text(
+                              'REVELAR PREDICCIÓN',
+                              style: GoogleFonts.cinzel(
+                                color: Colors.black,
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              )
             else
               Center(
                 child: Column(
@@ -466,9 +539,11 @@ class _HoroscopoScreenState extends State<HoroscopoScreen>
           Padding(
             padding: const EdgeInsets.only(top: 10),
             child: Text(
-              'Activa tu suscripción para desbloquear el horóscopo personalizado.',
+              user.canUseHoroscopeThisMonth
+                  ? 'Tienes 1 predicción gratuita este mes. Úsala sabiamente.'
+                  : 'Ya has usado tu predicción de este mes. Suscríbete para ilimitadas.',
               textAlign: TextAlign.center,
-              style: AppTextStyles.bodySmall,
+              style: AppTextStyles.bodySmall.copyWith(color: AppColors.gold),
             ),
           ),
 
@@ -508,10 +583,7 @@ class _HoroscopoScreenState extends State<HoroscopoScreen>
         // Botón consultar
         if (_signoSeleccionado != null)
           GlowButton(
-            onPressed: (_isLoading ||
-                    (user != null && !user.isMembershipActive))
-                ? null
-                : _generarPrediccion,
+            onPressed: _isLoading ? null : _generarPrediccion,
             height: 58,
             child: _isLoading
                 ? const SizedBox(

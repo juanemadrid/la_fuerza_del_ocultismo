@@ -12,6 +12,8 @@ class UserModel {
   final double? pendingPlanPrecio;
   final int? pendingPlanDias;
   final String birthDate;
+  /// Mes en que el usuario usó su horóscopo gratis. Formato "YYYY-MM" (ej. "2026-06").
+  final String? lastFreeHoroscopeMonth;
 
   UserModel({
     required this.uid,
@@ -27,6 +29,7 @@ class UserModel {
     this.pendingPlanPrecio,
     this.pendingPlanDias,
     this.birthDate = '',
+    this.lastFreeHoroscopeMonth,
   });
 
   // Verifica si la membresía está activa en este momento
@@ -34,6 +37,14 @@ class UserModel {
     if (!isSubscribed) return false;
     if (subscriptionExpiry == null) return false;
     return subscriptionExpiry!.isAfter(DateTime.now());
+  }
+
+  /// Retorna true si el usuario (plan gratis) puede consultar el horóscopo este mes.
+  bool get canUseHoroscopeThisMonth {
+    if (isMembershipActive) return true; // premium siempre puede
+    final now = DateTime.now();
+    final currentMonth = '${now.year}-${now.month.toString().padLeft(2, '0')}';
+    return lastFreeHoroscopeMonth != currentMonth;
   }
 
   // Días restantes de membresía
@@ -62,6 +73,7 @@ class UserModel {
           : null,
       pendingPlanDias: map['pendingPlanDias'],
       birthDate: map['birthDate'] ?? '',
+      lastFreeHoroscopeMonth: map['lastFreeHoroscopeMonth'],
     );
   }
 
@@ -79,6 +91,7 @@ class UserModel {
       'pendingPlanPrecio': pendingPlanPrecio,
       'pendingPlanDias': pendingPlanDias,
       'birthDate': birthDate,
+      'lastFreeHoroscopeMonth': lastFreeHoroscopeMonth,
     };
   }
 }

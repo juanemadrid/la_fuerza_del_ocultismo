@@ -177,6 +177,16 @@ class DatabaseService {
     await _db.collection('config').doc('whatsapp').set({'link': link});
   }
 
+  /// Marca que el usuario ya us\u00f3 su hor\u00f3scopo gratis este mes.
+  /// Guarda el mes actual en formato "YYYY-MM" en el documento del usuario.
+  Future<void> markFreeHoroscopeUsed(String uid) async {
+    final now = DateTime.now();
+    final currentMonth = '${now.year}-${now.month.toString().padLeft(2, '0')}';
+    await _db.collection('user').doc(uid).update({
+      'lastFreeHoroscopeMonth': currentMonth,
+    });
+  }
+
   /// Obtiene la configuración general de la app desde `config/app`.
   Future<Map<String, dynamic>> getAppConfig() async {
     var doc = await _db.collection('config').doc('app').get();
