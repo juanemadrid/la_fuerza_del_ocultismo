@@ -221,6 +221,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final double screenHeight = MediaQuery.of(context).size.height;
+    final bool isSmallScreen = screenHeight < 760;
+
     return Scaffold(
       resizeToAvoidBottomInset: true,
       body: Container(
@@ -236,6 +239,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   'assets/images/background.jpeg',
                   fit: BoxFit.cover,
                   alignment: Alignment.topCenter,
+                  color: AppColors.primary,
+                  colorBlendMode: BlendMode.color,
                 ),
               ),
             ),
@@ -244,47 +249,52 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 maxWidth: 450,
                 child: Center(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 28,
+                      vertical: isSmallScreen ? 12 : 24,
+                    ),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const SizedBox(height: 10),
+                        SizedBox(height: isSmallScreen ? 4 : 10),
 
                         Text(
                           'CREAR CUENTA',
                           style: AppTextStyles.displayLarge.copyWith(
-                            fontSize: 24,
+                            fontSize: isSmallScreen ? 20 : 24,
                             letterSpacing: 4,
                           ),
                         ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Regístrate, elige tu plan y solicita acceso',
-                          style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
-                        ),
-                        const SizedBox(height: 32),
+                        if (!isSmallScreen) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            'Regístrate, elige tu plan y solicita acceso',
+                            style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
+                          ),
+                        ],
+                        SizedBox(height: isSmallScreen ? 16 : 32),
 
                         // Nombre
-                        _label('Nombre completo'),
+                        _label('Nombre completo', isSmallScreen),
                         CustomTextField(
                           controller: _nameController,
                           hintText: 'Tu nombre completo',
                           prefixIcon: Icons.person_outline,
                         ),
-                        const SizedBox(height: 16),
+                        SizedBox(height: isSmallScreen ? 10 : 16),
 
                         // Email
-                        _label('Correo electrónico'),
+                        _label('Correo electrónico', isSmallScreen),
                         CustomTextField(
                           controller: _emailController,
                           hintText: 'tu@correo.com',
                           prefixIcon: Icons.email_outlined,
                           keyboardType: TextInputType.emailAddress,
                         ),
-                        const SizedBox(height: 16),
+                        SizedBox(height: isSmallScreen ? 10 : 16),
 
                         // Contraseña
-                        _label('Contraseña'),
+                        _label('Contraseña', isSmallScreen),
                         CustomTextField(
                           controller: _passController,
                           hintText: 'Mínimo 6 caracteres',
@@ -301,10 +311,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 setState(() => _obscurePass = !_obscurePass),
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        SizedBox(height: isSmallScreen ? 10 : 16),
 
                         // Confirmar contraseña
-                        _label('Confirmar contraseña'),
+                        _label('Confirmar contraseña', isSmallScreen),
                         CustomTextField(
                           controller: _confirmPassController,
                           hintText: 'Repite tu contraseña',
@@ -321,16 +331,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 setState(() => _obscureConfirm = !_obscureConfirm),
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        SizedBox(height: isSmallScreen ? 10 : 16),
 
                         // Signo zodiacal
-                        _label('Signo zodiacal'),
+                        _label('Signo zodiacal', isSmallScreen),
                         GestureDetector(
                           onTap: _mostrarSelectorSigno,
                           child: Container(
                             width: double.infinity,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 15),
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 16, vertical: isSmallScreen ? 11 : 15),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
@@ -382,7 +392,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 32),
+                        SizedBox(height: isSmallScreen ? 16 : 32),
 
                         // Botón registrar
                         _loading
@@ -393,7 +403,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 onPressed: _registrar,
                               ),
 
-                        const SizedBox(height: 24),
+                        SizedBox(height: isSmallScreen ? 16 : 24),
 
                         // Volver al login
                         Center(
@@ -433,15 +443,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  Widget _label(String text) => Align(
+  Widget _label(String text, bool isSmall) => Align(
         alignment: Alignment.centerLeft,
         child: Padding(
-          padding: const EdgeInsets.only(left: 4.0, bottom: 8.0),
+          padding: EdgeInsets.only(left: 4.0, bottom: isSmall ? 4.0 : 8.0),
           child: Text(
             text,
             style: AppTextStyles.bodyMedium.copyWith(
               color: AppColors.textSecondary,
               fontWeight: FontWeight.w600,
+              fontSize: isSmall ? 13 : 14,
             ),
           ),
         ),

@@ -164,6 +164,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final double screenHeight = MediaQuery.of(context).size.height;
+    final bool isSmallScreen = screenHeight < 760;
+
     return Scaffold(
       resizeToAvoidBottomInset: true,
       body: Container(
@@ -179,22 +182,27 @@ class _LoginScreenState extends State<LoginScreen> {
                   'assets/images/background.jpeg',
                   fit: BoxFit.cover,
                   alignment: Alignment.topCenter,
+                  color: AppColors.primary,
+                  colorBlendMode: BlendMode.color,
                 ),
               ),
             ),
             SafeArea(
               child: Center(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: isSmallScreen ? 12 : 24,
+                  ),
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 430),
                     child: Column(
                       children: [
-                        const SizedBox(height: 10),
+                        SizedBox(height: isSmallScreen ? 4 : 10),
                         
                         Container(
-                          width: 110,
-                          height: 110,
+                          width: isSmallScreen ? 80 : 110,
+                          height: isSmallScreen ? 80 : 110,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             color: AppColors.primary.withOpacity(0.12),
@@ -205,24 +213,24 @@ class _LoginScreenState extends State<LoginScreen> {
                             boxShadow: [
                               BoxShadow(
                                 color: AppColors.primary.withOpacity(0.3),
-                                blurRadius: 30,
-                                spreadRadius: 3,
+                                blurRadius: isSmallScreen ? 20 : 30,
+                                spreadRadius: isSmallScreen ? 2 : 3,
                               ),
                             ],
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.auto_awesome_rounded,
                             color: AppColors.gold,
-                            size: 56,
+                            size: isSmallScreen ? 38 : 56,
                           ),
                         ),
                         
-                        const SizedBox(height: 24),
+                        SizedBox(height: isSmallScreen ? 16 : 24),
                         
                         Text(
                           'LAS FUERZAS',
                           style: AppTextStyles.displayLarge.copyWith(
-                            fontSize: 26,
+                            fontSize: isSmallScreen ? 22 : 26,
                             letterSpacing: 4,
                           ),
                         ),
@@ -230,17 +238,17 @@ class _LoginScreenState extends State<LoginScreen> {
                         Text(
                           'DEL OCULTISMO',
                           style: AppTextStyles.labelGold.copyWith(
-                            fontSize: 12,
+                            fontSize: isSmallScreen ? 10 : 12,
                             letterSpacing: 3,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
                         
-                        const SizedBox(height: 32),
+                        SizedBox(height: isSmallScreen ? 20 : 32),
                         
                         Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.all(24),
+                          padding: EdgeInsets.all(isSmallScreen ? 16 : 24),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(24),
                             color: AppColors.bgSurface.withOpacity(0.85),
@@ -261,20 +269,22 @@ class _LoginScreenState extends State<LoginScreen> {
                               Text(
                                 'Acceso Privado',
                                 style: AppTextStyles.titleLarge.copyWith(
-                                  fontSize: 18,
+                                  fontSize: isSmallScreen ? 16 : 18,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              const SizedBox(height: 6),
-                              Text(
-                                'Ingresa al portal privado de tarot, horóscopo, rituales y limpiezas espirituales.',
-                                style: AppTextStyles.bodySmall.copyWith(
-                                  color: AppColors.textSecondary,
-                                  height: 1.5,
+                              if (!isSmallScreen) ...[
+                                const SizedBox(height: 6),
+                                Text(
+                                  'Ingresa al portal privado de tarot, horóscopo, rituales y limpiezas espirituales.',
+                                  style: AppTextStyles.bodySmall.copyWith(
+                                    color: AppColors.textSecondary,
+                                    height: 1.5,
+                                  ),
                                 ),
-                              ),
+                              ],
                               
-                              const SizedBox(height: 24),
+                              SizedBox(height: isSmallScreen ? 16 : 24),
                               
                               _buildField(
                                 controller: _usuarioController,
@@ -282,8 +292,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                 hint: 'tu@correo.com',
                                 icon: Icons.email_outlined,
                                 keyboardType: TextInputType.emailAddress,
+                                isSmall: isSmallScreen,
                               ),
-                              const SizedBox(height: 16),
+                              SizedBox(height: isSmallScreen ? 12 : 16),
                               
                               _buildField(
                                 controller: _contrasenaController,
@@ -291,6 +302,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 hint: 'Mínimo 6 caracteres',
                                 icon: Icons.lock_outline,
                                 obscureText: _obscurePassword,
+                                isSmall: isSmallScreen,
                                 suffixIcon: IconButton(
                                   onPressed: () => setState(
                                       () => _obscurePassword = !_obscurePassword),
@@ -303,27 +315,34 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                               ),
                               
-                              const SizedBox(height: 6),
+                              const SizedBox(height: 2),
                               Align(
                                 alignment: Alignment.centerRight,
                                 child: TextButton(
                                   onPressed: _olvidoContrasena,
+                                  style: TextButton.styleFrom(
+                                    padding: EdgeInsets.zero,
+                                    minimumSize: Size.zero,
+                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  ),
                                   child: Text(
                                     '¿Olvidaste tu contraseña?',
                                     style: AppTextStyles.bodySmall.copyWith(
                                       color: AppColors.gold,
                                       fontWeight: FontWeight.bold,
+                                      fontSize: isSmallScreen ? 11 : 12,
                                     ),
                                   ),
                                 ),
                               ),
                               
-                              const SizedBox(height: 12),
+                              SizedBox(height: isSmallScreen ? 12 : 20),
                               
                               GlowButton(
                                 onPressed: _loading ? null : _iniciarSesion,
                                 gradient: AppGradients.goldButton,
                                 glowColor: AppColors.gold,
+                                height: isSmallScreen ? 48 : 54,
                                 child: _loading
                                     ? const SizedBox(
                                         width: 22,
@@ -338,11 +357,12 @@ class _LoginScreenState extends State<LoginScreen> {
                                         style: AppTextStyles.titleMedium.copyWith(
                                           color: AppColors.bgBase,
                                           fontWeight: FontWeight.bold,
+                                          fontSize: isSmallScreen ? 13 : 14,
                                         ),
                                       ),
                               ),
                               
-                              const SizedBox(height: 24),
+                              SizedBox(height: isSmallScreen ? 16 : 24),
                               
                               Row(
                                 children: [
@@ -358,7 +378,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ],
                               ),
                               
-                              const SizedBox(height: 20),
+                              SizedBox(height: isSmallScreen ? 16 : 20),
                               
                               OutlineButton(
                                 onPressed: () => Navigator.push(
@@ -366,11 +386,13 @@ class _LoginScreenState extends State<LoginScreen> {
                                   MaterialPageRoute(
                                       builder: (_) => const RegisterScreen()),
                                 ),
+                                height: isSmallScreen ? 48 : 54,
                                 child: Text(
                                   'CREAR CUENTA',
                                   style: AppTextStyles.titleMedium.copyWith(
                                     color: AppColors.textPrimary,
                                     fontWeight: FontWeight.bold,
+                                    fontSize: isSmallScreen ? 13 : 14,
                                   ),
                                 ),
                               ),
@@ -378,16 +400,17 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                         
-                        const SizedBox(height: 24),
-                        
-                        const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            _TrustBadge(icon: Icons.verified_user_outlined, text: 'Acceso privado'),
-                            SizedBox(width: 14),
-                            _TrustBadge(icon: Icons.workspace_premium_outlined, text: 'Templo Premium'),
-                          ],
-                        ),
+                        if (!isSmallScreen) ...[
+                          const SizedBox(height: 24),
+                          const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              _TrustBadge(icon: Icons.verified_user_outlined, text: 'Acceso privado'),
+                              SizedBox(width: 14),
+                              _TrustBadge(icon: Icons.workspace_premium_outlined, text: 'Templo Premium'),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -408,6 +431,7 @@ class _LoginScreenState extends State<LoginScreen> {
     bool obscureText = false,
     Widget? suffixIcon,
     TextInputType? keyboardType,
+    bool isSmall = false,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -419,10 +443,11 @@ class _LoginScreenState extends State<LoginScreen> {
             style: AppTextStyles.bodyMedium.copyWith(
               color: AppColors.textSecondary,
               fontWeight: FontWeight.w600,
+              fontSize: isSmall ? 13 : 14,
             ),
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: isSmall ? 4 : 8),
         Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
@@ -435,11 +460,17 @@ class _LoginScreenState extends State<LoginScreen> {
             controller: controller,
             obscureText: obscureText,
             keyboardType: keyboardType,
-            style: AppTextStyles.bodyLarge.copyWith(color: AppColors.textPrimary),
+            style: AppTextStyles.bodyLarge.copyWith(
+              color: AppColors.textPrimary,
+              fontSize: isSmall ? 14 : 16,
+            ),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: AppTextStyles.bodyMedium.copyWith(color: AppColors.textMuted),
-              prefixIcon: Icon(icon, color: AppColors.primaryLight, size: 22),
+              hintStyle: AppTextStyles.bodyMedium.copyWith(
+                color: AppColors.textMuted,
+                fontSize: isSmall ? 13 : 14,
+              ),
+              prefixIcon: Icon(icon, color: AppColors.primaryLight, size: isSmall ? 18 : 22),
               suffixIcon: suffixIcon,
               filled: true,
               fillColor: AppColors.bgSurface.withOpacity(0.6),
@@ -447,7 +478,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 borderRadius: BorderRadius.circular(16),
                 borderSide: BorderSide.none,
               ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: isSmall ? 12 : 16,
+                vertical: isSmall ? 12 : 16,
+              ),
             ),
           ),
         ),
