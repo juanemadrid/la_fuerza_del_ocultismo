@@ -97,7 +97,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       title: 'Horóscopo',
                       subtitle: 'Guía por signo y energía del día',
                       gradient: AppGradients.horoscopoCard,
-                      accentColor: const Color(0xFF818CF8),
+                      accentColor: AppColors.primaryLight,
                       onTap: () => _open(context, const HoroscopoScreen()),
                     ),
                     _ServiceCard(
@@ -255,7 +255,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: const RadialGradient(
-                    colors: [Color(0xFF3B1D8A), Color(0xFF1A0F3E)],
+                    colors: [Color(0xFF3D0000), Color(0xFF1A0000)],
                   ),
                   border: Border.all(
                       color: AppColors.gold.withOpacity(0.5), width: 1.5),
@@ -449,7 +449,7 @@ class _HomeScreenState extends State<HomeScreen> {
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFF2D1B69), Color(0xFF1A1630)],
+                colors: [Color(0xFF1A0000), Color(0xFF111111)],
               ),
               border: Border(
                 bottom: BorderSide(color: AppColors.borderGold, width: 1),
@@ -463,7 +463,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: const RadialGradient(
-                      colors: [Color(0xFF4C1D95), Color(0xFF1A1630)],
+                      colors: [Color(0xFF5C0000), Color(0xFF1A0000)],
                     ),
                     border: Border.all(
                         color: AppColors.gold.withOpacity(0.55), width: 1.5),
@@ -691,7 +691,7 @@ class _PremiumActionPanel extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF1A1630), Color(0xFF0F0D1A)],
+          colors: [Color(0xFF1A0000), Color(0xFF0D0000)],
         ),
         borderRadius: BorderRadius.circular(26),
         border: Border.all(color: AppColors.gold.withOpacity(0.2)),
@@ -895,14 +895,14 @@ class _CartaDelDia extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            const Color(0xFF2D1B69).withOpacity(0.85),
-            const Color(0xFF1A0A30).withOpacity(0.9),
+            const Color(0xFF1A0000).withOpacity(0.92),
+            const Color(0xFF080808).withOpacity(0.96),
           ],
         ),
-        border: Border.all(color: const Color(0xFFD4A017).withOpacity(0.45), width: 1.5),
+        border: Border.all(color: AppColors.gold.withOpacity(0.45), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF9C27B0).withOpacity(0.2),
+            color: AppColors.primary.withOpacity(0.25),
             blurRadius: 24,
             offset: const Offset(0, 6),
           ),
@@ -919,9 +919,9 @@ class _CartaDelDia extends StatelessWidget {
               gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFF4C1D95), Color(0xFF1E0857), Color(0xFF0D0520)],
+                colors: [Color(0xFF3D0000), Color(0xFF1A0000), Color(0xFF080808)],
               ),
-              border: Border.all(color: const Color(0xFFD4A017).withOpacity(0.6), width: 1.5),
+              border: Border.all(color: AppColors.gold.withOpacity(0.6), width: 1.5),
               boxShadow: [
                 BoxShadow(
                   color: const Color(0xFFD4A017).withOpacity(0.3),
