@@ -125,6 +125,7 @@ class _SelectPlanScreenState extends State<SelectPlanScreen> {
                             : const Text(
                                 'CONTINUAR CON ESTE PLAN',
                                 style: TextStyle(
+                                  color: Colors.white,
                                   fontSize: 15,
                                   fontWeight: FontWeight.bold,
                                   letterSpacing: 1,
@@ -224,8 +225,14 @@ class _SelectPlanScreenState extends State<SelectPlanScreen> {
                     }
                   }
                 : null,
-            icon: const Icon(Icons.chat_outlined),
-            label: const Text('CONTACTAR AL MAESTRO'),
+            icon: const Icon(Icons.chat_outlined, color: Colors.white),
+            label: const Text(
+              'CONTACTAR AL MAESTRO',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF25D366),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -564,10 +571,11 @@ class PendingPaymentScreen extends StatelessWidget {
                                 }
                               }
                             : null,
-                        icon: const Icon(Icons.chat_outlined, size: 22),
+                        icon: const Icon(Icons.chat_outlined, size: 22, color: Colors.white),
                         label: const Text(
                           'CONTACTAR AL MAESTRO',
                           style: TextStyle(
+                            color: Colors.white,
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 1,
