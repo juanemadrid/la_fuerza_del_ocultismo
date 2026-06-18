@@ -25,7 +25,7 @@ class _TarotScreenState extends State<TarotScreen> {
       'titulo': 'Pasado',
       'descripcion': 'Descubre eventos que te han marcado',
       'icon': Icons.history_edu_rounded,
-      'color': const Color(0xFFA78BFA),
+      'color': AppColors.primary,
     },
     {
       'valor': 'presente',
@@ -564,7 +564,7 @@ class _TarotCardFlipWidgetState extends State<_TarotCardFlipWidget>
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF1E1040), Color(0xFF0F0820), Color(0xFF07060F)],
+          colors: [Color(0xFF1A0000), Color(0xFF0D0000), Color(0xFF080808)],
         ),
         border:
             Border.all(color: AppColors.gold.withOpacity(0.38), width: 1.5),
@@ -666,7 +666,7 @@ class _TarotCardFlipWidgetState extends State<_TarotCardFlipWidget>
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF1E1040), Color(0xFF0F0D1A)],
+          colors: [Color(0xFF1A0000), Color(0xFF111111)],
         ),
         border: Border.all(color: AppColors.gold.withOpacity(0.5), width: 1.5),
         boxShadow: [

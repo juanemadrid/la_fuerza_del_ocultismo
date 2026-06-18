@@ -111,7 +111,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         title: 'Contenido',
                         subtitle: 'Rituales, tarot y guías',
                         value: '4 áreas',
-                        color: Colors.deepPurpleAccent,
+                        color: Color(0xFFEF233C),
                         onTap: () => _showContentSheet(context),
                       ),
                       _QuickActionCard(
@@ -158,7 +158,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         title: 'Gestión de contenido',
                         subtitle: 'Cursos, rituales, artículos y guías PDF',
                         badge: 'Contenido',
-                        color: Colors.purpleAccent,
+                        color: Color(0xFFC0121C),
                         onTap: () => _showContentSheet(context),
                       ),
                       _ManagementTile(
@@ -166,7 +166,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         title: 'Notificaciones',
                         subtitle: 'Preparado para envíos a usuarios',
                         badge: 'Vista previa',
-                        color: Colors.blueAccent,
+                        color: Color(0xFFB71C1C),
                         onTap: () => _showComingSoon(context, 'Notificaciones'),
                       ),
                       _ManagementTile(
@@ -174,7 +174,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         title: 'Configuración general',
                         subtitle: 'WhatsApp, anuncios y ajustes de la app',
                         badge: 'Ajustes',
-                        color: Colors.blueGrey,
+                        color: Color(0xFF8D0000),
                         onTap: () => _open(context, const ManageConfig()),
                       ),
                     ]),

@@ -6,14 +6,14 @@ import 'package:google_fonts/google_fonts.dart';
 // ─────────────────────────────────────────────
 class AppColors {
   // Backgrounds
-  static const bgBase     = Color(0xFF07060F);
-  static const bgSurface  = Color(0xFF0F0D1A);
-  static const bgElevated = Color(0xFF1A1630);
+  static const bgBase     = Color(0xFF080808);
+  static const bgSurface  = Color(0xFF111111);
+  static const bgElevated = Color(0xFF1C1C1C);
 
-  // Primary — Mystical Violet
-  static const primary      = Color(0xFF7C3AED);
-  static const primaryLight = Color(0xFFA78BFA);
-  static const primaryDark  = Color(0xFF5B21B6);
+  // Primary — Black & Blood Red
+  static const primary      = Color(0xFFC0121C);
+  static const primaryLight = Color(0xFFEF233C);
+  static const primaryDark  = Color(0xFF7A0000);
 
   // Gold accent
   static const gold      = Color(0xFFD4AF37);
@@ -27,14 +27,14 @@ class AppColors {
   static const teal = Color(0xFF34D399);
 
   // Text
-  static const textPrimary   = Color(0xFFF0EDFF);
-  static const textSecondary = Color(0xFFA78BFA);
-  static const textMuted     = Color(0xFF6B5FA0);
+  static const textPrimary   = Color(0xFFF5F0F0);
+  static const textSecondary = Color(0xFFEF233C);
+  static const textMuted     = Color(0xFF8A6060);
 
   // Borders
-  static const borderSubtle  = Color(0x1FA78BFA);
+  static const borderSubtle  = Color(0x1FEF233C);
   static const borderGold    = Color(0x40D4AF37);
-  static const borderPrimary = Color(0x60A78BFA);
+  static const borderPrimary = Color(0x60C0121C);
 }
 
 // ─────────────────────────────────────────────
@@ -44,19 +44,19 @@ class AppGradients {
   static const backgroundRadial = RadialGradient(
     center: Alignment.topRight,
     radius: 1.6,
-    colors: [Color(0xFF150F2E), AppColors.bgBase],
+    colors: [Color(0xFF2A0000), AppColors.bgBase],
   );
 
   static const heroCard = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF1E1040), Color(0xFF0F0D1A), Color(0xFF0A0820)],
+    colors: [Color(0xFF1A0000), Color(0xFF111111), Color(0xFF080808)],
   );
 
   static const primaryButton = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF8B5CF6), Color(0xFF5B21B6)],
+    colors: [Color(0xFFEF233C), Color(0xFF7A0000)],
   );
 
   static const goldButton = LinearGradient(
@@ -65,16 +65,16 @@ class AppGradients {
     colors: [Color(0xFFD4AF37), Color(0xFFB8860B)],
   );
 
-  // Service card gradients — unified dark palette, subtle hue variation
+  // Service card gradients — dark black/red palette
   static const tarotCard = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF2E1065), Color(0xFF1A0F3E)],
+    colors: [Color(0xFF2A0A0A), Color(0xFF140404)],
   );
   static const horoscopoCard = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF1E1B4B), Color(0xFF0F0E28)],
+    colors: [Color(0xFF1A0000), Color(0xFF0D0000)],
   );
   static const limpiezasCard = LinearGradient(
     begin: Alignment.topLeft,
@@ -84,12 +84,12 @@ class AppGradients {
   static const ritualesCard = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF4A0E0E), Color(0xFF1F0606)],
+    colors: [Color(0xFF5C0000), Color(0xFF2A0000)],
   );
 
   // Progress bar gradients
   static const loveBar = LinearGradient(
-    colors: [Color(0xFFEC4899), Color(0xFF9B1C1C)],
+    colors: [Color(0xFFEF233C), Color(0xFF7A0000)],
   );
   static const friendshipBar = LinearGradient(
     colors: [Color(0xFF34D399), Color(0xFF065F46)],
@@ -164,6 +164,7 @@ class AppTheme {
         secondary: AppColors.gold,
         surface: AppColors.bgSurface,
         background: AppColors.bgBase,
+        error: AppColors.primaryLight,
       ),
       appBarTheme: AppBarTheme(
         backgroundColor: AppColors.bgBase,
@@ -173,7 +174,7 @@ class AppTheme {
         titleTextStyle: GoogleFonts.cinzel(
           color: AppColors.textPrimary,
           fontSize: 16,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w700,
           letterSpacing: 2.5,
         ),
       ),
