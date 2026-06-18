@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
 import '../models/user_model.dart';
 import 'database_service.dart';
@@ -135,40 +136,63 @@ class AuthService extends ChangeNotifier {
 
   Future<String?> signInWithGoogle() async {
     try {
-      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+      if (kIsWeb) {
+        final GoogleAuthProvider googleProvider = GoogleAuthProvider();
+        final UserCredential result = await _auth.signInWithPopup(googleProvider);
+        final User? user = result.user;
 
-      if (googleUser == null) {
-        return 'Inicio de sesión cancelado';
-      }
+        if (user != null) {
+          final UserModel? existingUser = await DatabaseService().getUser(user.uid);
 
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-
-      final OAuthCredential credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
-
-      UserCredential result = await _auth.signInWithCredential(credential);
-      User? user = result.user;
-
-      if (user != null) {
-        UserModel? existingUser = await DatabaseService().getUser(user.uid);
-
-        if (existingUser == null) {
-          UserModel newUser = UserModel(
-            uid: user.uid,
-            name: user.displayName ?? 'Usuario de Google',
-            email: user.email ?? '',
-            role: 'user',
-            isSubscribed: false,
-            zodiacSign: '',
-            pendingApproval: true,
-          );
-          await DatabaseService().saveUser(newUser);
+          if (existingUser == null) {
+            final UserModel newUser = UserModel(
+              uid: user.uid,
+              name: user.displayName ?? 'Usuario de Google',
+              email: user.email ?? '',
+              role: 'user',
+              isSubscribed: false,
+              zodiacSign: '',
+              pendingApproval: true,
+            );
+            await DatabaseService().saveUser(newUser);
+          }
         }
-      }
+        return null;
+      } else {
+        final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
 
-      return null;
+        if (googleUser == null) {
+          return 'Inicio de sesión cancelado';
+        }
+
+        final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+
+        final OAuthCredential credential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
+
+        final UserCredential result = await _auth.signInWithCredential(credential);
+        final User? user = result.user;
+
+        if (user != null) {
+          final UserModel? existingUser = await DatabaseService().getUser(user.uid);
+
+          if (existingUser == null) {
+            final UserModel newUser = UserModel(
+              uid: user.uid,
+              name: user.displayName ?? 'Usuario de Google',
+              email: user.email ?? '',
+              role: 'user',
+              isSubscribed: false,
+              zodiacSign: '',
+              pendingApproval: true,
+            );
+            await DatabaseService().saveUser(newUser);
+          }
+        }
+        return null;
+      }
     } on FirebaseAuthException catch (e) {
       return e.message;
     } catch (e) {

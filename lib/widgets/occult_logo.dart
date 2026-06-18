@@ -33,21 +33,21 @@ class _OccultLogoState extends State<OccultLogo> with TickerProviderStateMixin {
     // Blink: periodically blinks (closes and opens)
     _blinkCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 3200),
+      duration: const Duration(milliseconds: 1800),
     )..repeat();
 
     _eyeOpenAmount = TweenSequence<double>([
       TweenSequenceItem(
         tween: ConstantTween<double>(1.0),
-        weight: 85.0, // Stays open for 85% of time (approx 2.7s)
+        weight: 70.0, // Stays open for 70% of time (approx 1.26s)
       ),
       TweenSequenceItem(
         tween: Tween<double>(begin: 1.0, end: 0.0).chain(CurveTween(curve: Curves.easeIn)),
-        weight: 5.0, // Closes quickly (approx 0.16s)
+        weight: 10.0, // Closes quickly (approx 0.18s)
       ),
       TweenSequenceItem(
         tween: Tween<double>(begin: 0.0, end: 1.0).chain(CurveTween(curve: Curves.easeOut)),
-        weight: 10.0, // Opens back up (approx 0.32s)
+        weight: 20.0, // Opens back up (approx 0.36s)
       ),
     ]).animate(_blinkCtrl);
   }
