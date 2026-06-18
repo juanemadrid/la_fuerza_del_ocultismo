@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'dart:math';
+import '../models/tarot_card_model.dart';
+import '../services/database_service.dart';
+import '../theme/app_theme.dart';
 
 class TarotScreen extends StatefulWidget {
   const TarotScreen({super.key});
@@ -10,55 +14,85 @@ class TarotScreen extends StatefulWidget {
 
 class _TarotScreenState extends State<TarotScreen> {
   String? _tipoLectura;
-  List<Map<String, String>> _cartasSeleccionadas = [];
+  List<TarotCardModel> _cartasSeleccionadas = [];
   final TextEditingController _preguntaController = TextEditingController();
+  List<TarotCardModel> _todasLasCartas = [];
+  bool _cargando = true;
 
-  final List<Map<String, String>> _cartas = [
-    {'nombre': 'El Loco', 'significado': 'Nuevos comienzos, espontaneidad, fe en el futuro'},
-    {'nombre': 'El Mago', 'significado': 'Manifestación, recursos, poder, acción inspirada'},
-    {'nombre': 'La Sacerdotisa', 'significado': 'Intuición, misterio, subconsciente'},
-    {'nombre': 'La Emperatriz', 'significado': 'Feminidad, belleza, naturaleza, abundancia'},
-    {'nombre': 'El Emperador', 'significado': 'Autoridad, estructura, control, padre'},
-    {'nombre': 'El Hierofante', 'significado': 'Tradición, conformidad, moralidad, ética'},
-    {'nombre': 'Los Enamorados', 'significado': 'Amor, armonía, relaciones, valores'},
-    {'nombre': 'El Carro', 'significado': 'Control, voluntad, victoria, determinación'},
-    {'nombre': 'La Fuerza', 'significado': 'Fuerza interior, coraje, paciencia, compasión'},
-    {'nombre': 'El Ermitaño', 'significado': 'Búsqueda interior, introspección, guía'},
-    {'nombre': 'La Rueda de la Fortuna', 'significado': 'Cambio, ciclos, destino, punto de inflexión'},
-    {'nombre': 'La Justicia', 'significado': 'Justicia, equidad, verdad, ley'},
-    {'nombre': 'El Colgado', 'significado': 'Pausa, rendición, dejar ir, nueva perspectiva'},
-    {'nombre': 'La Muerte', 'significado': 'Finales, transformación, transición, liberación'},
-    {'nombre': 'La Templanza', 'significado': 'Balance, moderación, paciencia, propósito'},
-    {'nombre': 'El Diablo', 'significado': 'Ataduras, adicción, materialismo, ignorancia'},
-    {'nombre': 'La Torre', 'significado': 'Cambio repentino, revelación, despertar'},
-    {'nombre': 'La Estrella', 'significado': 'Esperanza, fe, renovación, espiritualidad'},
-    {'nombre': 'La Luna', 'significado': 'Ilusión, miedo, ansiedad, subconsciente'},
-    {'nombre': 'El Sol', 'significado': 'Alegría, éxito, celebración, positividad'},
-    {'nombre': 'El Juicio', 'significado': 'Juicio, renacimiento, perdón, llamado interior'},
-    {'nombre': 'El Mundo', 'significado': 'Completitud, logro, viaje, cumplimiento'},
+  final List<Map<String, dynamic>> _tiposLectura = [
+    {
+      'valor': 'pasado',
+      'titulo': 'Pasado',
+      'descripcion': 'Descubre eventos que te han marcado',
+      'icon': Icons.history_edu_rounded,
+      'color': const Color(0xFFA78BFA),
+    },
+    {
+      'valor': 'presente',
+      'titulo': 'Presente',
+      'descripcion': 'Comprende tu situación actual',
+      'icon': Icons.visibility_rounded,
+      'color': AppColors.primaryLight,
+    },
+    {
+      'valor': 'posible futuro',
+      'titulo': 'Posible Futuro',
+      'descripcion': 'Vislumbra lo que puede venir (3 cartas)',
+      'icon': Icons.explore_rounded,
+      'color': AppColors.gold,
+    },
+    {
+      'valor': 'pregunta directa',
+      'titulo': 'Pregunta',
+      'descripcion': 'Obtén respuesta a tu pregunta',
+      'icon': Icons.quiz_rounded,
+      'color': AppColors.teal,
+    },
   ];
 
+  @override
+  void initState() {
+    super.initState();
+    _cargarCartas();
+  }
+
+  void _cargarCartas() {
+    DatabaseService().streamTarotCards().listen((cartas) {
+      if (mounted) {
+        setState(() {
+          _todasLasCartas = cartas;
+          _cargando = false;
+        });
+      }
+    });
+  }
+
   void _realizarLectura() {
-    if (_tipoLectura == null) return;
-    
-    if (_tipoLectura == 'pregunta directa' && _preguntaController.text.isEmpty) {
+    if (_tipoLectura == null || _todasLasCartas.isEmpty) return;
+
+    if (_tipoLectura == 'pregunta directa' &&
+        _preguntaController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Por favor escribe tu pregunta'),
-          backgroundColor: Color(0xFFB71C1C),
+        SnackBar(
+          content: Text(
+            'Por favor escribe tu pregunta',
+            style: GoogleFonts.inter(color: AppColors.textPrimary),
+          ),
+          backgroundColor: AppColors.bgElevated,
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
       return;
     }
 
     final random = Random();
-    final cartasBarajadas = List<Map<String, String>>.from(_cartas)..shuffle(random);
-    
+    final cartasBarajadas = List<TarotCardModel>.from(_todasLasCartas)
+      ..shuffle(random);
+
     int numCartas = 1;
-    if (_tipoLectura == 'pasado') numCartas = 1;
-    else if (_tipoLectura == 'presente') numCartas = 1;
-    else if (_tipoLectura == 'posible futuro') numCartas = 3;
-    else if (_tipoLectura == 'pregunta directa') numCartas = 1;
+    if (_tipoLectura == 'posible futuro') numCartas = 3;
 
     setState(() {
       _cartasSeleccionadas = cartasBarajadas.take(numCartas).toList();
@@ -68,258 +102,95 @@ class _TarotScreenState extends State<TarotScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF0D0D0D),
-        title: const Text(
-          'TAROT',
-          style: TextStyle(
-            color: Color(0xFFB71C1C),
-            fontWeight: FontWeight.bold,
-            letterSpacing: 2,
-          ),
-        ),
-        iconTheme: const IconThemeData(color: Color(0xFFB71C1C)),
-      ),
+      backgroundColor: AppColors.bgBase,
+      appBar: _buildAppBar(),
       body: Container(
-        decoration: BoxDecoration(
-          gradient: RadialGradient(
-            center: Alignment.topLeft,
-            radius: 1.5,
-            colors: [
-              const Color(0xFF1A0000),
-              Colors.black,
-            ],
+        decoration:
+            const BoxDecoration(gradient: AppGradients.backgroundRadial),
+        child: _cargando
+            ? _buildLoading()
+            : _todasLasCartas.isEmpty
+                ? _buildEmpty()
+                : _buildContent(),
+      ),
+    );
+  }
+
+  PreferredSizeWidget _buildAppBar() {
+    return AppBar(
+      backgroundColor: AppColors.bgBase,
+      elevation: 0,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back_ios_rounded,
+            color: AppColors.primaryLight, size: 20),
+        onPressed: () => Navigator.pop(context),
+      ),
+      title: ShaderMask(
+        blendMode: BlendMode.srcIn,
+        shaderCallback: (bounds) => const LinearGradient(
+          colors: [AppColors.gold, AppColors.primaryLight],
+        ).createShader(bounds),
+        child: Text(
+          'TAROT',
+          style: GoogleFonts.cinzel(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 4,
           ),
         ),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Selecciona el tipo de lectura',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 20),
-              
-              // Opciones de lectura
-              _buildTipoLectura('pasado', 'Pasado', 'Descubre eventos que te han marcado'),
-              _buildTipoLectura('presente', 'Presente', 'Comprende tu situación actual'),
-              _buildTipoLectura('posible futuro', 'Posible Futuro', 'Vislumbra lo que puede venir'),
-              _buildTipoLectura('pregunta directa', 'Pregunta Directa', 'Obtén respuesta a tu pregunta'),
-              
-              // Campo de pregunta
-              if (_tipoLectura == 'pregunta directa') ...[
-                const SizedBox(height: 20),
-                const Text(
-                  'Escribe tu pregunta',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: const Color(0xFFB71C1C),
-                      width: 1,
-                    ),
-                  ),
-                  child: TextField(
-                    controller: _preguntaController,
-                    style: const TextStyle(color: Colors.white),
-                    maxLines: 3,
-                    decoration: InputDecoration(
-                      hintText: 'Escribe tu pregunta aquí...',
-                      hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
-                      filled: true,
-                      fillColor: Colors.black.withOpacity(0.3),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                  ),
-                ),
+      ),
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(1),
+        child: Container(
+          height: 1,
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Colors.transparent,
+                AppColors.borderGold,
+                Colors.transparent
               ],
-              
-              const SizedBox(height: 30),
-              
-              // Botón consultar
-              if (_tipoLectura != null)
-                SizedBox(
-                  width: double.infinity,
-                  height: 56,
-                  child: ElevatedButton(
-                    onPressed: _realizarLectura,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFB71C1C),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: const Text(
-                      'CONSULTAR CARTAS',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                  ),
-                ),
-              
-              // Resultado
-              if (_cartasSeleccionadas.isNotEmpty) ...[
-                const SizedBox(height: 40),
-                const Center(
-                  child: Text(
-                    'Tu lectura',
-                    style: TextStyle(
-                      color: Color(0xFFB71C1C),
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                
-                ..._cartasSeleccionadas.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final carta = entry.value;
-                  String posicion = '';
-                  if (_tipoLectura == 'posible futuro') {
-                    if (index == 0) posicion = 'Pasado';
-                    else if (index == 1) posicion = 'Presente';
-                    else posicion = 'Futuro';
-                  }
-                  
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 20),
-                    child: Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: const Color(0xFFB71C1C),
-                          width: 2,
-                        ),
-                        color: Colors.black.withOpacity(0.5),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFFB71C1C).withOpacity(0.3),
-                            blurRadius: 15,
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        children: [
-                          if (posicion.isNotEmpty)
-                            Text(
-                              posicion,
-                              style: const TextStyle(
-                                color: Color(0xFFB71C1C),
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          const SizedBox(height: 8),
-                          const Icon(
-                            Icons.auto_awesome,
-                            color: Color(0xFFB71C1C),
-                            size: 40,
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            carta['nombre']!,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            carta['significado']!,
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 14,
-                              height: 1.5,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ],
-            ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildTipoLectura(String valor, String titulo, String descripcion) {
-    final isSelected = _tipoLectura == valor;
-    
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _tipoLectura = valor;
-          _cartasSeleccionadas = [];
-        });
-      },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: isSelected ? const Color(0xFFB71C1C) : Colors.white24,
-            width: isSelected ? 2 : 1,
+  Widget _buildLoading() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const CircularProgressIndicator(
+            color: AppColors.primary,
+            strokeWidth: 2,
           ),
-          color: isSelected 
-              ? const Color(0xFFB71C1C).withOpacity(0.2)
-              : Colors.black.withOpacity(0.3),
-        ),
-        child: Row(
+          const SizedBox(height: 20),
+          Text(
+            'Consultando el oráculo...',
+            style: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 14),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmpty() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-              color: isSelected ? const Color(0xFFB71C1C) : Colors.white38,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    titulo,
-                    style: TextStyle(
-                      color: isSelected ? Colors.white : Colors.white70,
-                      fontSize: 16,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    descripcion,
-                    style: const TextStyle(
-                      color: Colors.white38,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
+            Icon(Icons.auto_awesome,
+                color: AppColors.textMuted.withOpacity(0.4), size: 56),
+            const SizedBox(height: 20),
+            Text(
+              'El mazo de tarot aún no está configurado.\nConsulta con el maestro.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                  color: AppColors.textMuted, fontSize: 15, height: 1.6),
             ),
           ],
         ),
@@ -327,9 +198,544 @@ class _TarotScreenState extends State<TarotScreen> {
     );
   }
 
+  Widget _buildContent() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Título sección ──────────────────────────────
+          Text('Tipo de Lectura', style: AppTextStyles.titleLarge),
+          const SizedBox(height: 6),
+          Text('Elige cómo el tarot te hablará hoy',
+              style: AppTextStyles.bodySmall),
+          const SizedBox(height: 20),
+
+          // ── Grid de tipos de lectura ────────────────────
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: 1.45,
+            ),
+            itemCount: _tiposLectura.length,
+            itemBuilder: (context, index) {
+              final tipo = _tiposLectura[index];
+              final isSelected = _tipoLectura == tipo['valor'];
+              return _ReadingTypeCard(
+                tipo: tipo,
+                isSelected: isSelected,
+                onTap: () => setState(() {
+                  _tipoLectura = tipo['valor'] as String;
+                  _cartasSeleccionadas = [];
+                }),
+              );
+            },
+          ),
+
+          // ── Campo pregunta directa ──────────────────────
+          if (_tipoLectura == 'pregunta directa') ...[
+            const SizedBox(height: 28),
+            Text('Tu Pregunta', style: AppTextStyles.titleMedium),
+            const SizedBox(height: 10),
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                    color: AppColors.primary.withOpacity(0.4), width: 1),
+                color: AppColors.bgSurface,
+              ),
+              child: TextField(
+                controller: _preguntaController,
+                style: GoogleFonts.inter(
+                    color: AppColors.textPrimary, fontSize: 14),
+                maxLines: 3,
+                decoration: InputDecoration(
+                  hintText: 'Escribe tu pregunta aquí...',
+                  hintStyle:
+                      GoogleFonts.inter(color: AppColors.textMuted, fontSize: 14),
+                  contentPadding: const EdgeInsets.all(16),
+                  border: InputBorder.none,
+                ),
+              ),
+            ),
+          ],
+
+          // ── Botón consultar ─────────────────────────────
+          if (_tipoLectura != null) ...[
+            const SizedBox(height: 30),
+            GlowButton(
+              onPressed: _realizarLectura,
+              height: 58,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.auto_awesome,
+                      color: Colors.white, size: 18),
+                  const SizedBox(width: 10),
+                  Text(
+                    'Consultar las Cartas',
+                    style: GoogleFonts.cinzel(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          // ── Resultado: cartas ───────────────────────────
+          if (_cartasSeleccionadas.isNotEmpty) ...[
+            const SizedBox(height: 44),
+            _buildLecturaTitle(),
+            const SizedBox(height: 26),
+            ..._cartasSeleccionadas.asMap().entries.map((entry) {
+              final index = entry.key;
+              final carta = entry.value;
+              String posicion = '';
+              if (_tipoLectura == 'posible futuro') {
+                if (index == 0) posicion = 'Pasado';
+                else if (index == 1) posicion = 'Presente';
+                else posicion = 'Posible Futuro';
+              }
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 26),
+                child: _TarotCardFlipWidget(
+                  key: ValueKey('${carta.id}_$index'),
+                  carta: carta,
+                  posicion: posicion,
+                ),
+              );
+            }),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLecturaTitle() {
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
+            height: 1,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.transparent, AppColors.borderGold],
+              ),
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Text(
+            'Tu Lectura',
+            style: GoogleFonts.cinzel(
+              color: AppColors.gold,
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 2,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Container(
+            height: 1,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [AppColors.borderGold, Colors.transparent],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   void dispose() {
     _preguntaController.dispose();
     super.dispose();
+  }
+}
+
+// ─────────────────────────────────────────────
+// READING TYPE CARD
+// ─────────────────────────────────────────────
+class _ReadingTypeCard extends StatelessWidget {
+  final Map<String, dynamic> tipo;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _ReadingTypeCard({
+    required this.tipo,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = tipo['color'] as Color;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: isSelected
+                ? LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      color.withOpacity(0.22),
+                      color.withOpacity(0.07),
+                    ],
+                  )
+                : const LinearGradient(
+                    colors: [AppColors.bgSurface, AppColors.bgSurface]),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isSelected ? color.withOpacity(0.7) : AppColors.borderSubtle,
+              width: isSelected ? 1.5 : 1,
+            ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: color.withOpacity(0.22),
+                      blurRadius: 14,
+                    )
+                  ]
+                : null,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? color.withOpacity(0.18)
+                      : AppColors.bgElevated,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  tipo['icon'] as IconData,
+                  color: isSelected ? color : AppColors.textMuted,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                tipo['titulo'] as String,
+                style: GoogleFonts.cinzel(
+                  color: isSelected
+                      ? AppColors.textPrimary
+                      : AppColors.textMuted,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                tipo['descripcion'] as String,
+                style: GoogleFonts.inter(
+                  color: isSelected
+                      ? AppColors.textSecondary
+                      : AppColors.textMuted.withOpacity(0.55),
+                  fontSize: 10,
+                  height: 1.3,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+// TAROT CARD FLIP WIDGET
+// ─────────────────────────────────────────────
+class _TarotCardFlipWidget extends StatefulWidget {
+  final TarotCardModel carta;
+  final String posicion;
+
+  const _TarotCardFlipWidget({
+    required this.carta,
+    required this.posicion,
+    super.key,
+  });
+
+  @override
+  State<_TarotCardFlipWidget> createState() => _TarotCardFlipWidgetState();
+}
+
+class _TarotCardFlipWidgetState extends State<_TarotCardFlipWidget>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+  bool _isFlipped = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 720),
+    );
+    _animation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOutBack),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onTap() {
+    if (!_isFlipped) {
+      _controller.forward();
+      setState(() => _isFlipped = true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        if (widget.posicion.isNotEmpty) ...[
+          Text(
+            widget.posicion.toUpperCase(),
+            style: AppTextStyles.labelGold,
+          ),
+          const SizedBox(height: 10),
+        ],
+        GestureDetector(
+          onTap: _onTap,
+          child: AnimatedBuilder(
+            animation: _animation,
+            builder: (context, child) {
+              final angle = _animation.value * pi;
+              final isFront = angle >= pi / 2;
+              return Transform(
+                transform: Matrix4.identity()
+                  ..setEntry(3, 2, 0.0012)
+                  ..rotateY(angle),
+                alignment: Alignment.center,
+                child: isFront
+                    ? Transform(
+                        transform: Matrix4.identity()..rotateY(pi),
+                        alignment: Alignment.center,
+                        child: _buildFrontSide(),
+                      )
+                    : _buildBackSide(),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBackSide() {
+    return Container(
+      width: double.infinity,
+      height: 240,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF1E1040), Color(0xFF0F0820), Color(0xFF07060F)],
+        ),
+        border:
+            Border.all(color: AppColors.gold.withOpacity(0.38), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withOpacity(0.28),
+            blurRadius: 26,
+            spreadRadius: 1,
+          ),
+        ],
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Marco interior
+          Positioned.fill(
+            child: Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                      color: AppColors.gold.withOpacity(0.12), width: 1),
+                ),
+              ),
+            ),
+          ),
+          // Estrellas de esquina
+          Positioned(
+              top: 16,
+              left: 16,
+              child: Icon(Icons.star_rounded,
+                  size: 8, color: AppColors.gold.withOpacity(0.4))),
+          Positioned(
+              top: 16,
+              right: 16,
+              child: Icon(Icons.star_rounded,
+                  size: 8, color: AppColors.gold.withOpacity(0.4))),
+          Positioned(
+              bottom: 16,
+              left: 16,
+              child: Icon(Icons.star_rounded,
+                  size: 8, color: AppColors.gold.withOpacity(0.4))),
+          Positioned(
+              bottom: 16,
+              right: 16,
+              child: Icon(Icons.star_rounded,
+                  size: 8, color: AppColors.gold.withOpacity(0.4))),
+          // Centro
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      AppColors.primary.withOpacity(0.28),
+                      AppColors.primary.withOpacity(0.04),
+                    ],
+                  ),
+                  border: Border.all(
+                      color: AppColors.gold.withOpacity(0.38), width: 1.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withOpacity(0.38),
+                      blurRadius: 20,
+                    ),
+                  ],
+                ),
+                child: const Icon(Icons.auto_awesome,
+                    color: AppColors.gold, size: 36),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                'REVELAR CARTA',
+                style: GoogleFonts.cinzel(
+                  color: AppColors.textMuted,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 3,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFrontSide() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(26),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF1E1040), Color(0xFF0F0D1A)],
+        ),
+        border: Border.all(color: AppColors.gold.withOpacity(0.5), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withOpacity(0.32),
+            blurRadius: 30,
+            spreadRadius: 2,
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Ícono con gradiente dorado
+          ShaderMask(
+            blendMode: BlendMode.srcIn,
+            shaderCallback: (b) => const LinearGradient(
+              colors: [AppColors.gold, AppColors.primaryLight],
+            ).createShader(b),
+            child: const Icon(Icons.auto_awesome, size: 38),
+          ),
+          const SizedBox(height: 14),
+          // Línea divisoria dorada
+          Container(
+            width: 50,
+            height: 1,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.transparent, AppColors.gold, Colors.transparent],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            widget.carta.nombre.toUpperCase(),
+            style: GoogleFonts.cinzel(
+              color: AppColors.textPrimary,
+              fontSize: 19,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 2,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 14),
+          Text(
+            widget.carta.significado,
+            style: GoogleFonts.inter(
+              color: AppColors.textSecondary,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              height: 1.6,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          if (widget.carta.descripcionExtendida.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Container(height: 1, color: AppColors.borderSubtle),
+            const SizedBox(height: 16),
+            Text(
+              widget.carta.descripcionExtendida,
+              style: GoogleFonts.inter(
+                color: AppColors.textMuted,
+                fontSize: 12,
+                height: 1.65,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ],
+      ),
+    );
   }
 }

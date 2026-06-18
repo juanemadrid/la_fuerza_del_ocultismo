@@ -1,0 +1,102 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── HELPERS ──────────────────────────────────────────────────────────────
+
+    // Verifica si el usuario está autenticado
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    // Verifica si el usuario es admin
+    function isAdmin() {
+      return isAuth() &&
+        get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Verifica si el usuario tiene membresía activa
+    function isSubscribed() {
+      return isAuth() &&
+        get(/databases/$(database)/documents/user/$(request.auth.uid)).data.isSubscribed == true;
+    }
+
+    // Verifica si el doc pertenece al usuario autenticado
+    function isOwner(uid) {
+      return isAuth() && request.auth.uid == uid;
+    }
+
+    // ─── USUARIOS ─────────────────────────────────────────────────────────────
+    match /user/{uid} {
+      // Cada usuario solo lee su propio perfil. Admins leen todos.
+      allow read: if isOwner(uid) || isAdmin();
+
+      // Crear perfil: solo el propio usuario (registro)
+      allow create: if isOwner(uid);
+
+      // Actualizar perfil: el usuario puede editar campos básicos
+      // El admin puede editar cualquier campo (roles, suscripciones)
+      allow update: if isOwner(uid) || isAdmin();
+
+      // Solo el admin puede eliminar usuarios
+      allow delete: if isAdmin();
+    }
+
+    // ─── CONTENIDO (Rituales, Limpiezas, PDFs) ────────────────────────────────
+    match /content/{docId} {
+      // Solo usuarios suscritos o admins pueden ver el contenido
+      allow read: if isSubscribed() || isAdmin();
+
+      // Solo admins pueden crear, editar o eliminar contenido
+      allow write: if isAdmin();
+    }
+
+    // ─── HORÓSCOPO ────────────────────────────────────────────────────────────
+    match /horoscopes/{sign} {
+      // Cualquier usuario suscrito puede ver el horóscopo
+      allow read: if isSubscribed() || isAdmin();
+
+      // Solo admins pueden actualizar el horóscopo
+      allow write: if isAdmin();
+    }
+
+    // ─── RITUALES ─────────────────────────────────────────────────────────────
+    match /rituales/{docId} {
+      allow read: if isSubscribed() || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // ─── LIMPIEZAS ────────────────────────────────────────────────────────────
+    match /limpiezas/{docId} {
+      allow read: if isSubscribed() || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // ─── TAROT ────────────────────────────────────────────────────────────────
+    match /tarot_cards/{docId} {
+      allow read: if isSubscribed() || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // ─── PLANES DE MEMBRESÍA ──────────────────────────────────────────────────
+    // Los planes son públicos (cualquiera puede ver los precios para registrarse)
+    match /planes/{docId} {
+      allow read: if true;  // Público - necesario para la pantalla de selección de plan
+      allow write: if isAdmin();
+    }
+
+    // ─── CONFIGURACIÓN GENERAL ────────────────────────────────────────────────
+    match /config/{docId} {
+      // Config pública (link de WhatsApp, etc.) es de solo lectura para todos
+      allow read: if true;
+
+      // Solo admins pueden modificar la configuración
+      allow write: if isAdmin();
+    }
+
+    // ─── BLOQUEAR TODO LO DEMÁS ───────────────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

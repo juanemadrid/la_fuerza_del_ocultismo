@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!--
+        ZONA SEGURA: el área visible es aprox. de 27dp a 81dp (centro 54dp)
+        Todo el diseño debe estar dentro de ese rango para no ser cortado
+    -->
+
+    <!-- Triángulo exterior — dentro de la zona segura -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#B71C1C"
+        android:strokeWidth="3.5"
+        android:strokeLineJoin="round"
+        android:strokeLineCap="round"
+        android:pathData="M54,30 L78,72 L30,72 Z" />
+
+    <!-- Triángulo interior -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#CC2222"
+        android:strokeWidth="2"
+        android:strokeLineJoin="round"
+        android:pathData="M54,40 L70,68 L38,68 Z" />
+
+    <!-- Ojo - iris rojo -->
+    <path
+        android:fillColor="#B71C1C"
+        android:pathData="M54,50 C50,50 47,53 47,57 C47,61 50,64 54,64 C58,64 61,61 61,57 C61,53 58,50 54,50 Z" />
+
+    <!-- Ojo - pupila negra -->
+    <path
+        android:fillColor="#0A0A0A"
+        android:pathData="M54,53.5 C52,53.5 51,55 51,57 C51,59 52,60.5 54,60.5 C56,60.5 57,59 57,57 C57,55 56,53.5 54,53.5 Z" />
+
+    <!-- Línea izquierda -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#B71C1C"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:pathData="M36,57 L47,57" />
+
+    <!-- Línea derecha -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#B71C1C"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:pathData="M61,57 L72,57" />
+
+</vector>

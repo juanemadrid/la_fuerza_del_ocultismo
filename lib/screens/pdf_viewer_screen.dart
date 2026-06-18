@@ -1,8 +1,10 @@
-import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:flutter_pdfview/flutter_pdfview.dart';
-import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+// Importaciones sólo para plataformas móviles/escritorio
+import 'pdf_viewer_screen_native.dart'
+    if (dart.library.html) 'pdf_viewer_screen_web.dart';
 
 class PdfViewerScreen extends StatefulWidget {
   final String title;
@@ -15,58 +17,63 @@ class PdfViewerScreen extends StatefulWidget {
 }
 
 class _PdfViewerScreenState extends State<PdfViewerScreen> {
-  String? localPath;
-  bool isLoading = true;
-  String error = '';
-
   @override
   void initState() {
     super.initState();
-    _downloadFile();
+    if (kIsWeb) {
+      // En web, abrir el PDF en una nueva pestaña directamente
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _openPdfInBrowser();
+      });
+    }
   }
 
-  Future<void> _downloadFile() async {
-    try {
-      final response = await http.get(Uri.parse(widget.url));
-      final bytes = response.bodyBytes;
-      final dir = await getApplicationDocumentsDirectory();
-      final file = File('${dir.path}/temp.pdf');
-      await file.writeAsBytes(bytes);
-      if (mounted) {
-        setState(() {
-          localPath = file.path;
-          isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          error = 'Error al cargar el PDF: $e';
-          isLoading = false;
-        });
-      }
+  Future<void> _openPdfInBrowser() async {
+    final uri = Uri.parse(widget.url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
+    // Volver atrás después de abrir
+    if (mounted) Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title),
+    if (kIsWeb) {
+      // Pantalla de carga mientras se abre el PDF en el navegador
+      return Scaffold(
         backgroundColor: const Color(0xFF0D0D0D),
-      ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFFB71C1C)))
-          : error.isNotEmpty
-              ? Center(child: Text(error, style: const TextStyle(color: Colors.white)))
-              : PDFView(
-                  filePath: localPath,
-                  enableSwipe: true,
-                  swipeHorizontal: false,
-                  autoSpacing: false,
-                  pageFling: false,
-                  onError: (e) => setState(() => error = e.toString()),
+        appBar: AppBar(
+          title: Text(widget.title),
+          backgroundColor: const Color(0xFF0D0D0D),
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const CircularProgressIndicator(color: Color(0xFFB71C1C)),
+              const SizedBox(height: 20),
+              const Text(
+                'Abriendo PDF en el navegador...',
+                style: TextStyle(color: Colors.white70, fontSize: 16),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton.icon(
+                onPressed: _openPdfInBrowser,
+                icon: const Icon(Icons.open_in_new),
+                label: const Text('Abrir PDF'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFB71C1C),
+                  foregroundColor: Colors.white,
                 ),
-    );
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // En móvil/escritorio: usar el visor nativo
+    return NativePdfViewer(title: widget.title, url: widget.url);
   }
 }

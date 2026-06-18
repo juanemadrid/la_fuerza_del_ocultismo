@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 
 class CustomTextField extends StatelessWidget {
   final TextEditingController controller;
@@ -6,6 +7,7 @@ class CustomTextField extends StatelessWidget {
   final IconData prefixIcon;
   final bool obscureText;
   final Widget? suffixIcon;
+  final TextInputType? keyboardType;
 
   const CustomTextField({
     super.key,
@@ -14,47 +16,37 @@ class CustomTextField extends StatelessWidget {
     required this.prefixIcon,
     this.obscureText = false,
     this.suffixIcon,
+    this.keyboardType,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFFB71C1C),
-          width: 2,
+          color: AppColors.borderPrimary,
+          width: 1.5,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFB71C1C).withOpacity(0.3),
-            blurRadius: 8,
-            spreadRadius: 0,
-          ),
-        ],
       ),
       child: TextField(
         controller: controller,
         obscureText: obscureText,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 16,
-        ),
+        keyboardType: keyboardType,
+        style: AppTextStyles.bodyLarge.copyWith(color: AppColors.textPrimary),
         decoration: InputDecoration(
           hintText: hintText,
-          hintStyle: TextStyle(
-            color: Colors.white.withOpacity(0.4),
-            fontSize: 14,
-          ),
+          hintStyle: AppTextStyles.bodyMedium.copyWith(color: AppColors.textMuted),
           prefixIcon: Icon(
             prefixIcon,
-            color: const Color(0xFFB71C1C),
+            color: AppColors.primaryLight,
+            size: 22,
           ),
           suffixIcon: suffixIcon,
           filled: true,
-          fillColor: Colors.black.withOpacity(0.5),
+          fillColor: AppColors.bgSurface.withOpacity(0.6),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(16),
             borderSide: BorderSide.none,
           ),
           contentPadding: const EdgeInsets.symmetric(

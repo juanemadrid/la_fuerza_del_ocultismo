@@ -1,9 +1,11 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../models/user_model.dart';
 import 'database_service.dart';
 
 class AuthService extends ChangeNotifier {
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   UserModel? _userModel;
 
@@ -18,7 +20,19 @@ class AuthService extends ChangeNotifier {
     if (user == null) {
       _userModel = null;
     } else {
+      // Verificar y actualizar membresía vencida antes de cargar el perfil
+      await DatabaseService().checkAndUpdateExpiredSubscription(user.uid);
       _userModel = await DatabaseService().getUser(user.uid);
+
+      // Si es admin, asegurarse que tenga pendingApproval = false
+      if (_userModel?.role == 'admin' && (_userModel?.pendingApproval == true)) {
+        await DatabaseService().updateUserRole(user.uid, 'admin');
+        await _db.collection('user').doc(user.uid).update({
+          'pendingApproval': false,
+          'isSubscribed': true,
+        });
+        _userModel = await DatabaseService().getUser(user.uid);
+      }
     }
     notifyListeners();
   }
@@ -34,7 +48,7 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  Future<String?> signUp(String email, String password, String name) async {
+  Future<String?> signUp(String email, String password, String name, {String zodiacSign = ''}) async {
     try {
       UserCredential result = await _auth.createUserWithEmailAndPassword(
         email: email,
@@ -47,12 +61,58 @@ class AuthService extends ChangeNotifier {
           uid: user.uid,
           name: name,
           email: email,
+          role: 'user',
+          isSubscribed: false,
+          zodiacSign: zodiacSign,
+          pendingApproval: true,
         );
         await DatabaseService().saveUser(newUser);
       }
       return null;
     } on FirebaseAuthException catch (e) {
       return e.message;
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
+  // Crear usuario desde el panel admin sin cerrar sesión del admin
+  Future<String?> createUserAsAdmin(String email, String password, String name, String role) async {
+    // Guardamos las credenciales del admin actual
+    final adminUser = _auth.currentUser;
+    if (adminUser == null) return 'No hay sesión de admin activa';
+
+    try {
+      // Creamos el nuevo usuario
+      UserCredential result = await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      User? newUser = result.user;
+
+      if (newUser != null) {
+        UserModel userModel = UserModel(
+          uid: newUser.uid,
+          name: name,
+          email: email,
+          role: role,
+        );
+        await DatabaseService().saveUser(userModel);
+        // Cerramos la sesión del nuevo usuario y volvemos a iniciar con el admin
+        await _auth.signOut();
+      }
+      return null;
+    } on FirebaseAuthException catch (e) {
+      return e.message;
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
+  Future<String?> deleteUser(String uid) async {
+    try {
+      await DatabaseService().deleteUserData(uid);
+      return null;
     } catch (e) {
       return e.toString();
     }

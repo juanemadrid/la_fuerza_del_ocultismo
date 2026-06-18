@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="120dp"
+    android:viewportWidth="120"
+    android:viewportHeight="120">
+
+    <!-- Triángulo exterior -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#B71C1C"
+        android:strokeWidth="3.5"
+        android:strokeLineJoin="round"
+        android:strokeLineCap="round"
+        android:pathData="M60,10 L108,90 L12,90 Z" />
+
+    <!-- Triángulo interior -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#B71C1C"
+        android:strokeWidth="2"
+        android:strokeLineJoin="round"
+        android:pathData="M60,28 L90,82 L30,82 Z" />
+
+    <!-- Ojo - iris -->
+    <path
+        android:fillColor="#B71C1C"
+        android:pathData="M60,46 C53,46 47,52 47,59 C47,66 53,72 60,72 C67,72 73,66 73,59 C73,52 67,46 60,46 Z" />
+
+    <!-- Ojo - pupila -->
+    <path
+        android:fillColor="#0D0D0D"
+        android:pathData="M60,51 C56.5,51 54,54 54,59 C54,64 56.5,67 60,67 C63.5,67 66,64 66,59 C66,54 63.5,51 60,51 Z" />
+
+    <!-- Brillo -->
+    <path
+        android:fillColor="#FF6666"
+        android:pathData="M64,53 C64,53 66,55 66,58 C66,58 65,55 64,53 Z" />
+
+    <!-- Líneas horizontales -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#B71C1C"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:pathData="M34,59 L47,59" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#B71C1C"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:pathData="M73,59 L86,59" />
+
+</vector>

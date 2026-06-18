@@ -1,0 +1,47 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // ─── HELPERS ──────────────────────────────────────────────────────────────
+
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuth() && 
+        firestore.get(/databases/(default)/documents/user/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isSubscribed() {
+      return isAuth() &&
+        firestore.get(/databases/(default)/documents/user/$(request.auth.uid)).data.isSubscribed == true;
+    }
+
+    // ─── ARCHIVOS DE CONTENIDO (PDFs, imágenes de rituales, etc.) ─────────────
+    match /content/{allPaths=**} {
+      // Solo suscritos o admins pueden descargar
+      allow read: if isSubscribed() || isAdmin();
+
+      // Solo admins pueden subir o eliminar
+      allow write: if isAdmin();
+    }
+
+    // ─── IMÁGENES DE TAROT ────────────────────────────────────────────────────
+    match /tarot/{allPaths=**} {
+      allow read: if isSubscribed() || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // ─── IMÁGENES PÚBLICAS (portadas, iconos de planes, etc.) ─────────────────
+    match /public/{allPaths=**} {
+      allow read: if true;   // Público
+      allow write: if isAdmin();
+    }
+
+    // ─── BLOQUEAR TODO LO DEMÁS ───────────────────────────────────────────────
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
