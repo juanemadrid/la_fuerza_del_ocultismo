@@ -143,8 +143,7 @@ class _OccultLogoPainter extends CustomPainter {
     // Brillo en los vértices del pentagrama
     for (final pt in pts) {
       final vtxPaint = Paint()
-        ..color = const Color(0xFFEF233C).withValues(alpha: 0.7 + 0.3 * pulse)
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, size.width * 0.02);
+        ..color = const Color(0xFFEF233C).withValues(alpha: 0.7 + 0.3 * pulse);
       canvas.drawCircle(pt, size.width * 0.022, vtxPaint);
     }
 

@@ -881,27 +881,25 @@ class _ArcaneCirclePainter extends CustomPainter {
     );
 
     final orbitGlowPaint = Paint()
-      ..color = const Color(0xFFB71C1C).withOpacity(0.18 + 0.10 * pulse)
+      ..color = const Color(0xFFB71C1C).withOpacity(0.14 + 0.08 * pulse)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 5.0
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+      ..strokeWidth = 6.0;
     canvas.drawOval(orbitRect, orbitGlowPaint);
 
     final orbitLinePaint = Paint()
-      ..color = AppColors.gold.withOpacity(0.24 + 0.08 * pulse)
+      ..color = AppColors.gold.withOpacity(0.28 + 0.08 * pulse)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
+      ..strokeWidth = 1.1;
     canvas.drawOval(orbitRect, orbitLinePaint);
 
     // Estelas de energía girando sobre el anillo orbital
     for (int i = 0; i < 4; i++) {
       final startA = orbitAngle - (math.pi / 2) + (i * math.pi / 2) - 0.55;
       final trailPaint = Paint()
-        ..color = accentColors[i].withOpacity(0.45 + 0.20 * pulse)
+        ..color = accentColors[i].withOpacity(0.55 + 0.20 * pulse)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.2
-        ..strokeCap = StrokeCap.round
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
+        ..strokeWidth = 2.4
+        ..strokeCap = StrokeCap.round;
       canvas.drawArc(orbitRect, startA, 0.50, false, trailPaint);
     }
 
@@ -909,12 +907,7 @@ class _ArcaneCirclePainter extends CustomPainter {
     for (int i = 0; i < cardCenters.length; i++) {
       final pt = cardCenters[i];
       final linePaint = Paint()
-        ..shader = LinearGradient(
-          colors: [
-            AppColors.gold.withOpacity(0.35 + 0.15 * pulse),
-            accentColors[i].withOpacity(0.18),
-          ],
-        ).createShader(Rect.fromPoints(center, pt))
+        ..color = accentColors[i].withOpacity(0.26 + 0.10 * pulse)
         ..strokeWidth = 1.0;
       canvas.drawLine(center, pt, linePaint);
     }
@@ -922,14 +915,13 @@ class _ArcaneCirclePainter extends CustomPainter {
     // 4. Doble anillo exterior del sello central con runas giratorias
     final outerSealR = coreR * 1.15;
     final sealGlow = Paint()
-      ..color = const Color(0xFFEF233C).withOpacity(0.20 + 0.12 * pulse)
+      ..color = const Color(0xFFEF233C).withOpacity(0.16 + 0.10 * pulse)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 6
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
+      ..strokeWidth = 5;
     canvas.drawCircle(center, outerSealR, sealGlow);
 
     final goldRingPaint = Paint()
-      ..color = AppColors.gold.withOpacity(0.42 + 0.15 * pulse)
+      ..color = AppColors.gold.withOpacity(0.45 + 0.15 * pulse)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.1;
     canvas.drawCircle(center, outerSealR, goldRingPaint);
@@ -979,10 +971,9 @@ class _ArcaneCirclePainter extends CustomPainter {
     canvas.drawPath(
       starPath,
       Paint()
-        ..color = const Color(0xFFB71C1C).withOpacity(0.32 + 0.18 * pulse)
+        ..color = const Color(0xFFB71C1C).withOpacity(0.28 + 0.14 * pulse)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 4.0
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
+        ..strokeWidth = 3.5,
     );
     canvas.drawPath(
       starPath,
