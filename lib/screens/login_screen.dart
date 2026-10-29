@@ -7,6 +7,7 @@ import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
+import '../utils/google_popup_helper.dart';
 import '../widgets/occult_logo.dart';
 import '../widgets/mysterious_page_route.dart';
 import 'home_screen.dart';
@@ -25,6 +26,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _contrasenaController = TextEditingController();
   bool _obscurePassword = true;
   bool _loading = false;
+  bool _googleLoading = false;
   bool _hasNavigated = false;
 
   final LocalAuthentication _localAuth = LocalAuthentication();
@@ -392,12 +394,15 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _iniciarSesionConGoogle() async {
-    if (_loading) return;
+    if (_loading || _googleLoading) return;
     final authService = Provider.of<AuthService>(context, listen: false);
     // Disparamos signInWithGoogle() sincrónicamente antes de setState para que
     // el navegador móvil no bloquee window.open() como popup no solicitado.
     final Future<String?> signInFuture = authService.signInWithGoogle();
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _googleLoading = true;
+    });
 
     try {
       final String? error = await signInFuture;
@@ -416,7 +421,12 @@ class _LoginScreenState extends State<LoginScreen> {
         _irAlHome();
       }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _googleLoading = false;
+        });
+      }
     }
   }
 
@@ -682,40 +692,78 @@ class _LoginScreenState extends State<LoginScreen> {
                               // Botón Google Sign-In
                               SizedBox(
                                 height: 48,
-                                child: Material(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(14),
-                                  child: InkWell(
+                                child: Listener(
+                                  onPointerDown: (event) {
+                                    if (!_loading && !_googleLoading) {
+                                      armGooglePopupOnTouch(
+                                        event.position.dx,
+                                        event.position.dy,
+                                      );
+                                    }
+                                  },
+                                  child: Material(
+                                    color: Colors.white,
                                     borderRadius: BorderRadius.circular(14),
-                                    onTap: _loading
-                                        ? null
-                                        : _iniciarSesionConGoogle,
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Image.network(
-                                          'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.png',
-                                          width: 20,
-                                          height: 20,
-                                          errorBuilder: (_, __, ___) =>
-                                              const Icon(
-                                                Icons.g_mobiledata_rounded,
-                                                color: Color(0xFF4285F4),
-                                                size: 24,
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(14),
+                                      onTap: (_loading || _googleLoading)
+                                          ? null
+                                          : _iniciarSesionConGoogle,
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          if (_googleLoading) ...[
+                                            const SizedBox(
+                                              width: 18,
+                                              height: 18,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2.2,
+                                                valueColor:
+                                                    AlwaysStoppedAnimation<
+                                                      Color
+                                                    >(Color(0xFF4285F4)),
                                               ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          'Continuar con Google',
-                                          style: AppTextStyles.titleMedium
-                                              .copyWith(
-                                                color: const Color(0xFF3C4043),
-                                                fontWeight: FontWeight.w600,
-                                                fontSize: 13,
-                                              ),
-                                        ),
-                                      ],
+                                            ),
+                                            const SizedBox(width: 10),
+                                            Text(
+                                              'Conectando con Google...',
+                                              style: AppTextStyles.titleMedium
+                                                  .copyWith(
+                                                    color: const Color(
+                                                      0xFF3C4043,
+                                                    ),
+                                                    fontWeight: FontWeight.w600,
+                                                    fontSize: 13,
+                                                  ),
+                                            ),
+                                          ] else ...[
+                                            Image.network(
+                                              'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.png',
+                                              width: 20,
+                                              height: 20,
+                                              errorBuilder: (_, __, ___) =>
+                                                  const Icon(
+                                                    Icons.g_mobiledata_rounded,
+                                                    color: Color(0xFF4285F4),
+                                                    size: 24,
+                                                  ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              'Continuar con Google',
+                                              style: AppTextStyles.titleMedium
+                                                  .copyWith(
+                                                    color: const Color(
+                                                      0xFF3C4043,
+                                                    ),
+                                                    fontWeight: FontWeight.w600,
+                                                    fontSize: 13,
+                                                  ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),

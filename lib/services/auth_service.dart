@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
 import '../models/user_model.dart';
+import '../utils/google_popup_helper.dart';
 import 'database_service.dart';
 
 class AuthService extends ChangeNotifier {
@@ -123,6 +124,8 @@ class AuthService extends ChangeNotifier {
         return 'Inicio de sesión con Google cancelado.';
       case 'popup-blocked':
         return 'Tu navegador bloqueó la ventana emergente. Permite ventanas emergentes e intenta de nuevo.';
+      case 'web-storage-unsupported':
+        return 'Tu navegador bloqueó el almacenamiento de sesión. Intenta en Chrome o Safari sin modo incógnito.';
       case 'unauthorized-domain':
         return 'Dominio no autorizado para inicio con Google.';
       default:
@@ -256,12 +259,13 @@ class AuthService extends ChangeNotifier {
   Future<String?> signInWithGoogle() async {
     try {
       if (kIsWeb) {
+        // En móvil abre sincrónicamente la pestaña del popup dentro del gesto táctil
+        // antes de los awaits internos de Firebase Auth para que el navegador no lo bloquee.
+        openGooglePopupSync();
+
         final GoogleAuthProvider googleProvider = GoogleAuthProvider();
         googleProvider.setCustomParameters({'prompt': 'select_account'});
 
-        //IMPORTANTE: No usar getRedirectResult() ni signInWithRedirect() porque
-        //inyectan el iframe /__/auth/iframe en window.frames y provocan que
-        //handler.js espere 20s en pantalla blanca al abrir signInWithPopup en móvil.
         final UserCredential result = await _auth.signInWithPopup(googleProvider);
         final User? user = result.user ?? _auth.currentUser;
 
@@ -295,12 +299,14 @@ class AuthService extends ChangeNotifier {
         return null;
       }
     } on FirebaseAuthException catch (e) {
+      closePendingGooglePopup();
       if (_auth.currentUser != null) {
         await _ensureUserModelForGoogleUser(_auth.currentUser!);
         return null;
       }
       return _traducirErrorFirebase(e);
     } catch (e) {
+      closePendingGooglePopup();
       if (_auth.currentUser != null) {
         await _ensureUserModelForGoogleUser(_auth.currentUser!);
         return null;

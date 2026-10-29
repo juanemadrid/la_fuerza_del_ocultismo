@@ -5,6 +5,7 @@ import 'package:email_validator/email_validator.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
+import '../utils/google_popup_helper.dart';
 import '../widgets/responsive_container.dart';
 import '../widgets/custom_text_field.dart';
 import '../widgets/custom_button.dart';
@@ -445,35 +446,45 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         SizedBox(
                           width: double.infinity,
                           height: 48,
-                          child: Material(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(14),
-                            child: InkWell(
+                          child: Listener(
+                            onPointerDown: (event) {
+                              if (!_loading) {
+                                armGooglePopupOnTouch(
+                                  event.position.dx,
+                                  event.position.dy,
+                                );
+                              }
+                            },
+                            child: Material(
+                              color: Colors.white,
                               borderRadius: BorderRadius.circular(14),
-                              onTap: _loading ? null : _continuarConGoogle,
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Image.network(
-                                    'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.png',
-                                    width: 20,
-                                    height: 20,
-                                    errorBuilder: (_, __, ___) => const Icon(
-                                      Icons.g_mobiledata_rounded,
-                                      color: Color(0xFF4285F4),
-                                      size: 24,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(14),
+                                onTap: _loading ? null : _continuarConGoogle,
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Image.network(
+                                      'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.png',
+                                      width: 20,
+                                      height: 20,
+                                      errorBuilder: (_, __, ___) => const Icon(
+                                        Icons.g_mobiledata_rounded,
+                                        color: Color(0xFF4285F4),
+                                        size: 24,
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'Continuar con Google',
-                                    style: AppTextStyles.titleMedium.copyWith(
-                                      color: const Color(0xFF3C4043),
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 13,
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Continuar con Google',
+                                      style: AppTextStyles.titleMedium.copyWith(
+                                        color: const Color(0xFF3C4043),
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 13,
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
                           ),

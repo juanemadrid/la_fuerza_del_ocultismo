@@ -4,6 +4,7 @@
   <base href="$FLUTTER_BASE_HREF">
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="description" content="La Fuerza del Ocultismo - Rituales, horóscopo, limpiezas y más. Tu guía espiritual en línea.">
   <meta name="keywords" content="ocultismo, rituales, horóscopo, limpiezas, espiritual, tarot">
   <meta name="theme-color" content="#000000">
@@ -19,6 +20,146 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { background: #000000; width: 100%; height: 100%; overflow: hidden; }
   </style>
+  <script>
+    (function() {
+      var origWindowOpen = window.open;
+      window.__pendingAuthPopup = null;
+      var touchArmState = null;
+
+      function isMobileBrowser() {
+        return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
+      }
+
+      window.__openGooglePopupSync = function() {
+        try {
+          if (!isMobileBrowser()) return;
+          if (window.__pendingAuthPopup && !window.__pendingAuthPopup.closed) {
+            return;
+          }
+          var w = origWindowOpen.call(window, 'about:blank', '_blank');
+          if (w) {
+            window.__pendingAuthPopup = w;
+            try {
+              w.document.open();
+              w.document.write(
+                '<!DOCTYPE html><html><head><meta charset="utf-8">' +
+                '<meta name="viewport" content="width=device-width,initial-scale=1">' +
+                '<title>Conectando con Google...</title>' +
+                '<style>body{margin:0;background:#080808;color:#D4AF37;font-family:sans-serif;' +
+                'display:flex;flex-direction:column;align-items:center;justify-content:center;' +
+                'height:100vh;text-align:center}.s{width:38px;height:38px;' +
+                'border:3px solid rgba(212,175,55,0.25);border-top-color:#D4AF37;' +
+                'border-radius:50%;animation:r .8s linear infinite;margin-bottom:16px}' +
+                '@keyframes r{to{transform:rotate(360deg)}}</style></head>' +
+                '<body><div class="s"></div><div>Conectando con Google...</div></body></html>'
+              );
+              w.document.close();
+            } catch (_) {}
+          }
+        } catch (_) {}
+      };
+
+      window.__armGooglePopupOnTouch = function(x, y) {
+        if (!isMobileBrowser()) return;
+        touchArmState = { x: x || 0, y: y || 0, time: Date.now() };
+      };
+
+      window.__closePendingGooglePopup = function() {
+        try {
+          if (window.__pendingAuthPopup && !window.__pendingAuthPopup.closed) {
+            window.__pendingAuthPopup.close();
+          }
+        } catch (_) {}
+        window.__pendingAuthPopup = null;
+        touchArmState = null;
+      };
+
+      function onNativeTouchOrClick(ev) {
+        if (!touchArmState) return;
+        var state = touchArmState;
+        touchArmState = null;
+        if (Date.now() - state.time > 1200) return;
+        if (ev && ev.changedTouches && ev.changedTouches.length > 0) {
+          var t = ev.changedTouches[0];
+          var dx = (t.clientX || 0) - state.x;
+          var dy = (t.clientY || 0) - state.y;
+          if (Math.sqrt(dx * dx + dy * dy) > 24) return;
+        }
+        window.__openGooglePopupSync();
+      }
+
+      window.addEventListener('touchend', onNativeTouchOrClick, true);
+      window.addEventListener('click', onNativeTouchOrClick, true);
+
+      window.open = function(url, target, features) {
+        if (
+          window.__pendingAuthPopup &&
+          !window.__pendingAuthPopup.closed &&
+          typeof url === 'string' &&
+          url.indexOf('/__/auth/handler') !== -1
+        ) {
+          var w = window.__pendingAuthPopup;
+          window.__pendingAuthPopup = null;
+          try {
+            w.location.replace(url);
+            w.focus();
+          } catch (_) {
+            try { w.location.href = url; } catch (__) {}
+          }
+          return w;
+        }
+        return origWindowOpen.apply(window, arguments);
+      };
+
+      function patchFirebaseAuthModule(mod) {
+        try {
+          var resolver = mod && mod.browserPopupRedirectResolver;
+          var proto = resolver && resolver.prototype;
+          if (proto && !proto.__patchedForMobile) {
+            proto.__patchedForMobile = true;
+            // Evita que navegadores móviles rechacen el popup por partición de third-party storage en el iframe
+            proto._isIframeWebStorageSupported = function(auth, cb) {
+              cb(true);
+            };
+            var origInit = proto._initialize;
+            if (typeof origInit === 'function') {
+              proto._initialize = function(auth) {
+                try {
+                  var key = auth && typeof auth._key === 'function' ? auth._key() : null;
+                  if (key && this.iframes && this.iframes[key]) {
+                    var iframeObj = this.iframes[key];
+                    var el = typeof iframeObj.getIframeEl === 'function' ? iframeObj.getIframeEl() : null;
+                    if (el && !document.body.contains(el)) {
+                      delete this.eventManagers[key];
+                      delete this.iframes[key];
+                    }
+                  }
+                } catch (_) {}
+                return origInit.call(this, auth);
+              };
+            }
+          }
+        } catch (_) {}
+      }
+
+      var _fbAuthMod = window.firebase_auth;
+      if (_fbAuthMod) {
+        patchFirebaseAuthModule(_fbAuthMod);
+      } else {
+        try {
+          Object.defineProperty(window, 'firebase_auth', {
+            configurable: true,
+            enumerable: true,
+            get: function() { return _fbAuthMod; },
+            set: function(val) {
+              _fbAuthMod = val;
+              patchFirebaseAuthModule(val);
+            }
+          });
+        } catch (_) {}
+      }
+    })();
+  </script>
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>
