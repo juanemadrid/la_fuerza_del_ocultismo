@@ -18,6 +18,19 @@ class StorageService {
     }
   }
 
+  Future<String?> uploadTarotImage(File file, String cardId) async {
+    try {
+      String ext = p.extension(file.path);
+      Reference ref = _storage.ref().child('tarot/$cardId$ext');
+      UploadTask uploadTask = ref.putFile(file);
+      TaskSnapshot snapshot = await uploadTask;
+      return await snapshot.ref.getDownloadURL();
+    } catch (e) {
+      print('Error uploading tarot image: $e');
+      return null;
+    }
+  }
+
   Future<void> deleteFile(String url) async {
     try {
       Reference ref = _storage.refFromURL(url);

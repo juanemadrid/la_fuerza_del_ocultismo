@@ -6,7 +6,8 @@ import '../theme/app_theme.dart';
 import '../widgets/responsive_container.dart';
 import '../widgets/custom_text_field.dart';
 import '../widgets/custom_button.dart';
-import 'select_plan_screen.dart';
+import '../widgets/mysterious_page_route.dart';
+import 'home_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -96,8 +97,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (error != null) {
       _showError(error);
     } else {
+      if (!mounted) return;
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const SelectPlanScreen()),
+        MysteriousPageRoute(child: const HomeScreen()),
       );
     }
   }
@@ -266,7 +268,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         if (!isSmallScreen) ...[
                           const SizedBox(height: 6),
                           Text(
-                            'Regístrate, elige tu plan y solicita acceso',
+                            'Crea tu cuenta y accede gratis al portal',
                             style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
                           ),
                         ],

@@ -22,9 +22,10 @@ class AuthService extends ChangeNotifier {
     if (user == null) {
       _userModel = null;
     } else {
-      // Verificar y actualizar membresía vencida antes de cargar el perfil
-      await DatabaseService().checkAndUpdateExpiredSubscription(user.uid);
-      _userModel = await DatabaseService().getUser(user.uid);
+      // Si _userModel ya está cargado y coincide con el usuario, evitamos consulta redundante
+      if (_userModel == null || _userModel!.uid != user.uid) {
+        _userModel = await DatabaseService().getUser(user.uid);
+      }
 
       // Si es admin, asegurarse que tenga pendingApproval = false
       if (_userModel?.role == 'admin' && (_userModel?.pendingApproval == true)) {
@@ -39,14 +40,48 @@ class AuthService extends ChangeNotifier {
     notifyListeners();
   }
 
+  String _traducirErrorFirebase(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'invalid-credential':
+      case 'wrong-password':
+      case 'user-not-found':
+        return 'El correo o la contraseña ingresados son incorrectos.';
+      case 'invalid-email':
+        return 'El correo electrónico ingresado no es válido.';
+      case 'user-disabled':
+        return 'Esta cuenta ha sido desactivada. Contacta al administrador.';
+      case 'email-already-in-use':
+        return 'Ya existe una cuenta registrada con este correo electrónico.';
+      case 'weak-password':
+        return 'La contraseña es muy débil. Debe tener al menos 6 caracteres.';
+      case 'too-many-requests':
+        return 'Demasiados intentos fallidos. Por favor, espera un momento antes de volver a intentar.';
+      case 'network-request-failed':
+        return 'Error de conexión. Por favor verifica tu acceso a internet.';
+      case 'operation-not-allowed':
+        return 'Esta opción de inicio de sesión no está disponible actualmente.';
+      case 'account-exists-with-different-credential':
+        return 'Ya existe una cuenta con este correo asociada a otro método de acceso.';
+      default:
+        if (e.message != null && e.message!.toLowerCase().contains('credential')) {
+          return 'El correo o la contraseña ingresados son incorrectos.';
+        }
+        return e.message ?? 'Ocurrió un error al intentar autenticarte.';
+    }
+  }
+
   Future<String?> signIn(String email, String password) async {
     try {
-      await _auth.signInWithEmailAndPassword(email: email, password: password);
+      UserCredential result = await _auth.signInWithEmailAndPassword(email: email, password: password);
+      if (result.user != null) {
+        _userModel = await DatabaseService().getUser(result.user!.uid);
+        notifyListeners();
+      }
       return null;
     } on FirebaseAuthException catch (e) {
-      return e.message;
+      return _traducirErrorFirebase(e);
     } catch (e) {
-      return e.toString();
+      return 'Error al iniciar sesión: ${e.toString()}';
     }
   }
 
@@ -66,15 +101,15 @@ class AuthService extends ChangeNotifier {
           role: 'user',
           isSubscribed: false,
           zodiacSign: zodiacSign,
-          pendingApproval: true,
+          pendingApproval: false, // Plan gratuito: acceso directo al app
         );
         await DatabaseService().saveUser(newUser);
       }
       return null;
     } on FirebaseAuthException catch (e) {
-      return e.message;
+      return _traducirErrorFirebase(e);
     } catch (e) {
-      return e.toString();
+      return 'Error al registrarte: ${e.toString()}';
     }
   }
 
@@ -152,10 +187,14 @@ class AuthService extends ChangeNotifier {
               role: 'user',
               isSubscribed: false,
               zodiacSign: '',
-              pendingApproval: true,
+              pendingApproval: false,
             );
             await DatabaseService().saveUser(newUser);
+            _userModel = newUser;
+          } else {
+            _userModel = existingUser;
           }
+          notifyListeners();
         }
         return null;
       } else {
@@ -186,17 +225,21 @@ class AuthService extends ChangeNotifier {
               role: 'user',
               isSubscribed: false,
               zodiacSign: '',
-              pendingApproval: true,
+              pendingApproval: false,
             );
             await DatabaseService().saveUser(newUser);
+            _userModel = newUser;
+          } else {
+            _userModel = existingUser;
           }
+          notifyListeners();
         }
         return null;
       }
     } on FirebaseAuthException catch (e) {
-      return e.message;
+      return _traducirErrorFirebase(e);
     } catch (e) {
-      return e.toString();
+      return 'Error con Google: ${e.toString()}';
     }
   }
 }

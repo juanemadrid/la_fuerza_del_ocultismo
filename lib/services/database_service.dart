@@ -19,7 +19,16 @@ class DatabaseService {
   Future<UserModel?> getUser(String uid) async {
     var doc = await _db.collection('user').doc(uid).get();
     if (doc.exists) {
-      return UserModel.fromMap(doc.data()!, doc.id);
+      final data = doc.data()!;
+      if (data['isSubscribed'] == true && data['subscriptionExpiry'] != null) {
+        final expiry = (data['subscriptionExpiry'] as dynamic).toDate() as DateTime;
+        if (expiry.isBefore(DateTime.now())) {
+          // Actualización asíncrona de fondo sin bloquear el inicio de sesión
+          _db.collection('user').doc(uid).update({'isSubscribed': false});
+          data['isSubscribed'] = false;
+        }
+      }
+      return UserModel.fromMap(data, doc.id);
     }
     return null;
   }
@@ -184,6 +193,26 @@ class DatabaseService {
     final currentMonth = '${now.year}-${now.month.toString().padLeft(2, '0')}';
     await _db.collection('user').doc(uid).update({
       'lastFreeHoroscopeMonth': currentMonth,
+    });
+  }
+
+  /// Registra las cartas de tarot gratuitas usadas este mes.
+  /// [cardsUsed] es la cantidad de cartas que se acaban de usar en esta lectura.
+  Future<void> markFreeTarotCardsUsed(String uid, int cardsUsed) async {
+    final now = DateTime.now();
+    final currentMonth = '${now.year}-${now.month.toString().padLeft(2, '0')}';
+    final doc = await _db.collection('user').doc(uid).get();
+    if (!doc.exists) return;
+    final data = doc.data()!;
+    final storedMonth = data['freeTarotMonth'] as String?;
+    final storedCount = (data['freeTarotCardsUsed'] as int?) ?? 0;
+
+    // Si es un mes diferente, reiniciar el contador
+    final newCount = storedMonth == currentMonth ? storedCount + cardsUsed : cardsUsed;
+
+    await _db.collection('user').doc(uid).update({
+      'freeTarotMonth': currentMonth,
+      'freeTarotCardsUsed': newCount,
     });
   }
 

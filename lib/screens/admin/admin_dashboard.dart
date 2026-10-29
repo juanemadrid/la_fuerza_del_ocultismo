@@ -15,7 +15,8 @@ import 'manage_tarot.dart';
 import 'manage_users.dart';
 
 class AdminDashboard extends StatefulWidget {
-  const AdminDashboard({super.key});
+  final bool isRoot;
+  const AdminDashboard({super.key, this.isRoot = false});
 
   @override
   State<AdminDashboard> createState() => _AdminDashboardState();
@@ -58,10 +59,27 @@ class _AdminDashboardState extends State<AdminDashboard> {
             final vencidos = clientes
                 .where((u) => !u.isMembershipActive && u.subscriptionExpiry != null)
                 .length;
+            final noSuscritos = clientes.where((u) => !u.isSubscribed).length;
             final ingresoEstimado = clientes.fold<double>(
               0,
               (total, u) => total + (u.pendingPlanPrecio ?? 0),
             );
+
+            // Crear una curva real basada en la distribución de usuarios
+            List<double> chartData = [0.2, 0.3, 0.25, 0.45, 0.35, 0.6, 0.55, 0.8];
+            if (clientes.isNotEmpty) {
+              final double t = clientes.length.toDouble();
+              chartData = [
+                0.15,
+                (clientes.where((u) => u.zodiacSign.isEmpty).length / t),
+                (noSuscritos / t),
+                (vencidos / t),
+                (pendientes / t),
+                (activos / t),
+                ((activos + pendientes) / t),
+                0.85,
+              ];
+            }
 
             return CustomScrollView(
               slivers: [
@@ -73,6 +91,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     pendientes: pendientes,
                     vencidos: vencidos,
                     ingreso: ingresoEstimado,
+                    chartData: chartData,
                   ),
                 ),
                 SliverToBoxAdapter(
@@ -194,11 +213,16 @@ class _AdminDashboardState extends State<AdminDashboard> {
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
       child: Row(
         children: [
-          IconButton(
-            onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white70),
-          ),
-          const SizedBox(width: 6),
+          if (!widget.isRoot && Navigator.canPop(context)) ...[
+            IconButton(
+              onPressed: () => Navigator.pop(context),
+              icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white70),
+            ),
+            const SizedBox(width: 6),
+          ] else ...[
+            const Icon(Icons.shield_outlined, color: Color(0xFFB71C1C)),
+            const SizedBox(width: 12),
+          ],
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -329,7 +353,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
               }
             },
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFB71C1C)),
-            child: const Text('CERRAR SESIÓN'),
+            child: const Text(
+              'CERRAR SESIÓN',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
@@ -343,6 +370,7 @@ class _HeroSummary extends StatelessWidget {
   final int pendientes;
   final int vencidos;
   final double ingreso;
+  final List<double> chartData;
 
   const _HeroSummary({
     required this.total,
@@ -350,6 +378,7 @@ class _HeroSummary extends StatelessWidget {
     required this.pendientes,
     required this.vencidos,
     required this.ingreso,
+    required this.chartData,
   });
 
   @override
@@ -400,7 +429,7 @@ class _HeroSummary extends StatelessWidget {
               color: Colors.black.withOpacity(0.34),
               border: Border.all(color: Colors.white.withOpacity(0.06)),
             ),
-            child: CustomPaint(painter: _RevenueChartPainter()),
+            child: CustomPaint(painter: _RevenueChartPainter(chartData)),
           ),
         ],
       ),
@@ -677,6 +706,9 @@ class _NavItem extends StatelessWidget {
 }
 
 class _RevenueChartPainter extends CustomPainter {
+  final List<double> data;
+  _RevenueChartPainter(this.data);
+
   @override
   void paint(Canvas canvas, Size size) {
     final gridPaint = Paint()
@@ -687,16 +719,15 @@ class _RevenueChartPainter extends CustomPainter {
       canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
     }
 
-    final points = <Offset>[
-      Offset(0, size.height * .78),
-      Offset(size.width * .13, size.height * .62),
-      Offset(size.width * .26, size.height * .70),
-      Offset(size.width * .39, size.height * .44),
-      Offset(size.width * .52, size.height * .55),
-      Offset(size.width * .65, size.height * .31),
-      Offset(size.width * .78, size.height * .40),
-      Offset(size.width, size.height * .13),
-    ];
+    if (data.isEmpty) return;
+
+    final points = <Offset>[];
+    final double dx = size.width / (data.length - 1);
+    for (int i = 0; i < data.length; i++) {
+      final val = data[i].clamp(0.0, 1.0);
+      final y = size.height * (1.0 - (val * 0.8 + 0.1));
+      points.add(Offset(i * dx, y));
+    }
 
     final path = Path()..moveTo(points.first.dx, points.first.dy);
     for (final point in points.skip(1)) {
@@ -725,5 +756,5 @@ class _RevenueChartPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _RevenueChartPainter oldDelegate) => oldDelegate.data != data;
 }

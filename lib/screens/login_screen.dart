@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:email_validator/email_validator.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:local_auth/local_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/occult_logo.dart';
+import '../widgets/mysterious_page_route.dart';
 import 'home_screen.dart';
-import 'membresia_vencida_screen.dart';
 import 'pending_approval_screen.dart';
 import 'register_screen.dart';
-import 'select_plan_screen.dart';
 import 'admin/admin_dashboard.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -24,6 +26,174 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _contrasenaController = TextEditingController();
   bool _obscurePassword = true;
   bool _loading = false;
+
+  final LocalAuthentication _localAuth = LocalAuthentication();
+  bool _biometricsAvailable = false;
+  String? _savedEmail;
+  String? _savedPassword;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkBiometrics();
+  }
+
+  Future<void> _checkBiometrics() async {
+    try {
+      final bool canAuthenticateWithBiometrics = await _localAuth.canCheckBiometrics;
+      final bool canAuthenticate = canAuthenticateWithBiometrics || await _localAuth.isDeviceSupported();
+      
+      if (!canAuthenticate) return;
+
+      final List<BiometricType> availableBiometrics = await _localAuth.getAvailableBiometrics();
+      if (availableBiometrics.isEmpty) return;
+
+      final prefs = await SharedPreferences.getInstance();
+      final savedEmail = prefs.getString('saved_email');
+      final savedPassword = prefs.getString('saved_password');
+      final biometricsEnabled = prefs.getBool('biometrics_enabled') ?? false;
+
+      if (mounted) {
+        setState(() {
+          _biometricsAvailable = biometricsEnabled && savedEmail != null && savedPassword != null;
+          _savedEmail = savedEmail;
+          _savedPassword = savedPassword;
+        });
+
+        // Intentar autenticar automáticamente si está configurado y hay credenciales
+        if (_biometricsAvailable) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _iniciarSesionConHuella();
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint("Error checking biometrics: $e");
+    }
+  }
+
+  Future<void> _iniciarSesionConHuella() async {
+    if (_savedEmail == null || _savedPassword == null) return;
+    try {
+      final bool authenticated = await _localAuth.authenticate(
+        localizedReason: 'Escanea tu huella para acceder al portal sagrado',
+        options: const AuthenticationOptions(
+          stickyAuth: true,
+          biometricOnly: true,
+        ),
+      );
+
+      if (authenticated) {
+        setState(() => _loading = true);
+        final authService = Provider.of<AuthService>(context, listen: false);
+        String? loginError = await authService.signIn(_savedEmail!, _savedPassword!);
+
+        if (loginError != null) {
+          if (mounted) {
+            _showSnackBar(loginError, isError: true);
+          }
+          setState(() => _loading = false);
+          return;
+        }
+
+        if (mounted) {
+          int intentos = 0;
+          while (authService.userModel == null && intentos < 10) {
+            await Future.delayed(const Duration(milliseconds: 300));
+            intentos++;
+          }
+          _irAlHome();
+        }
+      }
+    } catch (e) {
+      debugPrint("Error during biometrics login: $e");
+      if (mounted) {
+        _showSnackBar('Error de huella: ${e.toString()}', isError: true);
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _preguntarActivarBiometria(String email, String password) async {
+    final prefs = await SharedPreferences.getInstance();
+    final yaPreguntado = prefs.getBool('biometrics_asked') ?? false;
+    if (yaPreguntado) {
+      _irAlHome();
+      return;
+    }
+
+    final bool canAuthenticateWithBiometrics = await _localAuth.canCheckBiometrics;
+    final bool canAuthenticate = canAuthenticateWithBiometrics || await _localAuth.isDeviceSupported();
+    if (!canAuthenticate) {
+      _irAlHome();
+      return;
+    }
+
+    if (mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          backgroundColor: AppColors.bgSurface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: const BorderSide(color: AppColors.borderGold),
+          ),
+          title: Text(
+            '¿Activar Huella Digital?',
+            style: AppTextStyles.titleLarge.copyWith(color: AppColors.gold),
+          ),
+          content: Text(
+            '¿Deseas activar el inicio de sesión con tu huella digital para entrar más rápido la próxima vez?',
+            style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                await prefs.setBool('biometrics_asked', true);
+                await prefs.setBool('biometrics_enabled', false);
+                if (mounted) Navigator.pop(context);
+                _irAlHome();
+              },
+              child: Text(
+                'No, gracias',
+                style: AppTextStyles.titleMedium.copyWith(color: AppColors.textMuted),
+              ),
+            ),
+            TextButton(
+              onPressed: () async {
+                await prefs.setBool('biometrics_asked', true);
+                await prefs.setBool('biometrics_enabled', true);
+                await prefs.setString('saved_email', email);
+                await prefs.setString('saved_password', password);
+                if (mounted) Navigator.pop(context);
+                _irAlHome();
+              },
+              child: Text(
+                'Sí, activar',
+                style: AppTextStyles.titleMedium.copyWith(color: AppColors.gold, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  void _irAlHome() {
+    if (!mounted) return;
+    final user = Provider.of<AuthService>(context, listen: false).userModel;
+    if (user?.role == 'admin') {
+      Navigator.of(context).pushReplacement(
+        MysteriousPageRoute(child: const AdminDashboard(isRoot: true)),
+      );
+    } else {
+      Navigator.of(context).pushReplacement(
+        MysteriousPageRoute(child: const HomeScreen()),
+      );
+    }
+  }
 
   @override
   void dispose() {
@@ -75,44 +245,23 @@ class _LoginScreenState extends State<LoginScreen> {
 
         final user = authService2.userModel;
 
-        if (user?.role == 'admin') {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const AdminDashboard()),
-          );
-          return;
-        }
+        // Comprobar preferencias de biometría tras login exitoso
+        final prefs = await SharedPreferences.getInstance();
+        final biometricsEnabled = prefs.getBool('biometrics_enabled') ?? false;
 
-        if (user == null) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const HomeScreen()),
-          );
-          return;
-        }
-
-        if (user.pendingApproval &&
-            user.subscriptionExpiry == null &&
-            user.pendingPlanId == null) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const SelectPlanScreen()),
-          );
-          return;
-        }
-
-        if (user.pendingApproval && user.subscriptionExpiry == null) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const PendingApprovalScreen()),
-          );
-          return;
-        }
-
-        if (user.isMembershipActive) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const HomeScreen()),
-          );
+        if (biometricsEnabled) {
+          // Mantener credenciales actualizadas
+          await prefs.setString('saved_email', usuario);
+          await prefs.setString('saved_password', contrasena);
+          _irAlHome();
         } else {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const MembresiaVencidaScreen()),
-          );
+          final yaPreguntado = prefs.getBool('biometrics_asked') ?? false;
+          final bool canAuth = await _localAuth.canCheckBiometrics || await _localAuth.isDeviceSupported();
+          if (canAuth && !yaPreguntado) {
+            await _preguntarActivarBiometria(usuario, contrasena);
+          } else {
+            _irAlHome();
+          }
         }
       }
     } catch (e) {
@@ -134,6 +283,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _olvidoContrasena() {
+    final emailController = TextEditingController(text: _usuarioController.text.trim());
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -146,17 +296,63 @@ class _LoginScreenState extends State<LoginScreen> {
           'Recuperar Contraseña',
           style: AppTextStyles.titleLarge.copyWith(color: AppColors.gold),
         ),
-        content: Text(
-          'Se enviará un enlace de recuperación a tu correo electrónico registrado.',
-          style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Ingresa tu correo y te enviaremos un enlace para restablecer tu contraseña:',
+              style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: emailController,
+              keyboardType: TextInputType.emailAddress,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: 'correo@ejemplo.com',
+                hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
+                filled: true,
+                fillColor: AppColors.bgElevated,
+                prefixIcon: const Icon(Icons.email_outlined, color: AppColors.gold, size: 20),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppColors.borderGold),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              ),
+            ),
+          ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(
-              'Cerrar',
-              style: AppTextStyles.titleMedium.copyWith(color: AppColors.gold),
+              'Cancelar',
+              style: AppTextStyles.titleMedium.copyWith(color: AppColors.textMuted),
             ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.gold,
+              foregroundColor: Colors.black,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () async {
+              final email = emailController.text.trim();
+              if (email.isEmpty || !EmailValidator.validate(email)) {
+                _showSnackBar('Por favor ingresa un correo válido', isError: true);
+                return;
+              }
+              Navigator.pop(context);
+              try {
+                await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+                _showSnackBar('¡Enlace enviado! Revisa tu bandeja de entrada o spam.');
+              } catch (e) {
+                _showSnackBar('No se pudo enviar el correo. Verifica que esté registrado.', isError: true);
+              }
+            },
+            child: const Text('Enviar Enlace', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -185,24 +381,17 @@ class _LoginScreenState extends State<LoginScreen> {
 
         if (user?.role == 'admin') {
           Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const AdminDashboard()),
+            MysteriousPageRoute(child: const AdminDashboard(isRoot: true)),
           );
           return;
         }
 
-        if (user == null || user.isMembershipActive) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const HomeScreen()),
-          );
-        } else if (user.pendingApproval && user.subscriptionExpiry == null) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const SelectPlanScreen()),
-          );
-        } else {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const MembresiaVencidaScreen()),
-          );
-        }
+
+
+        // Todos los demás van al HomeScreen
+        Navigator.of(context).pushReplacement(
+          MysteriousPageRoute(child: const HomeScreen()),
+        );
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -236,52 +425,54 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Center(
                 child: SingleChildScrollView(
                   padding: EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: isSmallScreen ? 12 : 24,
+                    horizontal: 20,
+                    vertical: isSmallScreen ? 10 : 16,
                   ),
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 430),
+                    constraints: const BoxConstraints(maxWidth: 420),
                     child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        SizedBox(height: isSmallScreen ? 4 : 10),
-                        
-                        OccultLogo(size: isSmallScreen ? 80 : 110),
-                        
-                        SizedBox(height: isSmallScreen ? 16 : 24),
+                        OccultLogo(size: isSmallScreen ? 70 : 85),
+                        const SizedBox(height: 12),
                         
                         Text(
-                          'LAS FUERZAS',
+                          'LA FUERZA',
                           style: AppTextStyles.displayLarge.copyWith(
-                            fontSize: isSmallScreen ? 22 : 26,
+                            fontSize: isSmallScreen ? 20 : 23,
                             letterSpacing: 4,
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 3),
                         Text(
                           'DEL OCULTISMO',
                           style: AppTextStyles.labelGold.copyWith(
-                            fontSize: isSmallScreen ? 10 : 12,
+                            fontSize: isSmallScreen ? 10 : 11,
                             letterSpacing: 3,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
                         
-                        SizedBox(height: isSmallScreen ? 20 : 32),
+                        SizedBox(height: isSmallScreen ? 14 : 18),
                         
                         Container(
                           width: double.infinity,
-                          padding: EdgeInsets.all(isSmallScreen ? 16 : 24),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: isSmallScreen ? 16 : 20,
+                          ),
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(24),
-                            color: AppColors.bgSurface.withOpacity(0.85),
+                            borderRadius: BorderRadius.circular(22),
+                            color: const Color(0xFF141416).withOpacity(0.92),
                             border: Border.all(
-                              color: AppColors.borderGold.withOpacity(0.3),
+                              color: AppColors.borderGold.withOpacity(0.35),
+                              width: 1.2,
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.4),
+                                color: Colors.black.withOpacity(0.5),
                                 blurRadius: 24,
-                                offset: const Offset(0, 12),
+                                offset: const Offset(0, 10),
                               ),
                             ],
                           ),
@@ -291,22 +482,22 @@ class _LoginScreenState extends State<LoginScreen> {
                               Text(
                                 'Acceso Privado',
                                 style: AppTextStyles.titleLarge.copyWith(
-                                  fontSize: isSmallScreen ? 16 : 18,
+                                  fontSize: 17,
                                   fontWeight: FontWeight.bold,
+                                  color: Colors.white,
                                 ),
                               ),
-                              if (!isSmallScreen) ...[
-                                const SizedBox(height: 6),
-                                Text(
-                                  'Ingresa al portal privado de tarot, horóscopo, rituales y limpiezas espirituales.',
-                                  style: AppTextStyles.bodySmall.copyWith(
-                                    color: AppColors.textSecondary,
-                                    height: 1.5,
-                                  ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Ingresa al portal privado de tarot, horóscopo y rituales.',
+                                style: AppTextStyles.bodySmall.copyWith(
+                                  color: Colors.white.withOpacity(0.6),
+                                  height: 1.3,
+                                  fontSize: 12,
                                 ),
-                              ],
+                              ),
                               
-                              SizedBox(height: isSmallScreen ? 16 : 24),
+                              const SizedBox(height: 16),
                               
                               _buildField(
                                 controller: _usuarioController,
@@ -316,7 +507,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 keyboardType: TextInputType.emailAddress,
                                 isSmall: isSmallScreen,
                               ),
-                              SizedBox(height: isSmallScreen ? 12 : 16),
+                              const SizedBox(height: 12),
                               
                               _buildField(
                                 controller: _contrasenaController,
@@ -332,18 +523,19 @@ class _LoginScreenState extends State<LoginScreen> {
                                     _obscurePassword
                                         ? Icons.visibility_off_outlined
                                         : Icons.visibility_outlined,
-                                    color: AppColors.textMuted,
+                                    color: Colors.white.withOpacity(0.5),
+                                    size: 20,
                                   ),
                                 ),
                               ),
                               
-                              const SizedBox(height: 2),
+                              const SizedBox(height: 4),
                               Align(
                                 alignment: Alignment.centerRight,
                                 child: TextButton(
                                   onPressed: _olvidoContrasena,
                                   style: TextButton.styleFrom(
-                                    padding: EdgeInsets.zero,
+                                    padding: const EdgeInsets.symmetric(vertical: 4),
                                     minimumSize: Size.zero,
                                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                   ),
@@ -351,101 +543,134 @@ class _LoginScreenState extends State<LoginScreen> {
                                     '¿Olvidaste tu contraseña?',
                                     style: AppTextStyles.bodySmall.copyWith(
                                       color: AppColors.gold,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: isSmallScreen ? 11 : 12,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 12,
                                     ),
                                   ),
                                 ),
                               ),
                               
-                              SizedBox(height: isSmallScreen ? 12 : 20),
-                              
-                              GlowButton(
-                                onPressed: _loading ? null : _iniciarSesion,
-                                gradient: AppGradients.goldButton,
-                                glowColor: AppColors.gold,
-                                height: isSmallScreen ? 48 : 54,
-                                child: _loading
-                                    ? const SizedBox(
-                                        width: 22,
-                                        height: 22,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2.5,
-                                          valueColor: AlwaysStoppedAnimation<Color>(AppColors.bgBase),
-                                        ),
-                                      )
-                                    : Text(
-                                        'INICIAR SESIÓN',
-                                        style: AppTextStyles.titleMedium.copyWith(
-                                          color: AppColors.bgBase,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: isSmallScreen ? 13 : 14,
-                                        ),
-                                      ),
-                              ),
-                              
-                              SizedBox(height: isSmallScreen ? 16 : 24),
+                              const SizedBox(height: 14),
                               
                               Row(
                                 children: [
-                                  Expanded(child: Container(height: 1, color: AppColors.borderSubtle)),
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                                    child: Text(
-                                      'o',
-                                      style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted),
+                                  Expanded(
+                                    child: GlowButton(
+                                      onPressed: _loading ? null : _iniciarSesion,
+                                      gradient: AppGradients.goldButton,
+                                      glowColor: AppColors.gold,
+                                      height: 48,
+                                      child: _loading
+                                          ? const SizedBox(
+                                              width: 22,
+                                              height: 22,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2.5,
+                                                valueColor: AlwaysStoppedAnimation<Color>(AppColors.bgBase),
+                                              ),
+                                            )
+                                          : Text(
+                                              'INICIAR SESIÓN',
+                                              style: AppTextStyles.titleMedium.copyWith(
+                                                color: AppColors.bgBase,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 13,
+                                                letterSpacing: 0.5,
+                                              ),
+                                            ),
                                     ),
                                   ),
-                                  Expanded(child: Container(height: 1, color: AppColors.borderSubtle)),
+                                  if (_biometricsAvailable) ...[
+                                    const SizedBox(width: 10),
+                                    Container(
+                                      height: 48,
+                                      width: 48,
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(14),
+                                        border: Border.all(
+                                          color: AppColors.borderGold.withOpacity(0.6),
+                                          width: 1.2,
+                                        ),
+                                        color: const Color(0xFF1C1C1F),
+                                      ),
+                                      child: IconButton(
+                                        onPressed: _loading ? null : _iniciarSesionConHuella,
+                                        icon: const Icon(
+                                          Icons.fingerprint_rounded,
+                                          color: AppColors.gold,
+                                          size: 26,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ],
                               ),
                               
-                              SizedBox(height: isSmallScreen ? 16 : 20),
+                              const SizedBox(height: 14),
+                              
+                              Row(
+                                children: [
+                                  Expanded(child: Container(height: 1, color: Colors.white.withOpacity(0.1))),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                                    child: Text(
+                                      'o',
+                                      style: AppTextStyles.bodySmall.copyWith(
+                                        color: Colors.white.withOpacity(0.4),
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(child: Container(height: 1, color: Colors.white.withOpacity(0.1))),
+                                ],
+                              ),
+                              
+                              const SizedBox(height: 14),
                               
                               OutlineButton(
                                 onPressed: () => Navigator.push(
                                   context,
-                                  MaterialPageRoute(
-                                      builder: (_) => const RegisterScreen()),
+                                  MysteriousPageRoute(child: const RegisterScreen()),
                                 ),
-                                height: isSmallScreen ? 48 : 54,
+                                height: 48,
                                 child: Text(
                                   'CREAR CUENTA',
                                   style: AppTextStyles.titleMedium.copyWith(
-                                    color: AppColors.textPrimary,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: isSmallScreen ? 13 : 14,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13,
+                                    letterSpacing: 0.5,
                                   ),
                                 ),
                               ),
                               
-                              SizedBox(height: isSmallScreen ? 10 : 14),
+                              const SizedBox(height: 10),
 
                               // Botón Google Sign-In
                               SizedBox(
-                                height: isSmallScreen ? 48 : 54,
+                                height: 48,
                                 child: Material(
                                   color: Colors.white,
-                                  borderRadius: BorderRadius.circular(16),
+                                  borderRadius: BorderRadius.circular(14),
                                   child: InkWell(
-                                    borderRadius: BorderRadius.circular(16),
+                                    borderRadius: BorderRadius.circular(14),
                                     onTap: _loading ? null : _iniciarSesionConGoogle,
                                     child: Row(
                                       mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
                                         Image.network(
                                           'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg',
-                                          width: 22,
-                                          height: 22,
-                                          errorBuilder: (_, __, ___) => const Icon(Icons.g_mobiledata, size: 24),
+                                          width: 20,
+                                          height: 20,
+                                          errorBuilder: (_, __, ___) => const Icon(Icons.g_mobiledata, size: 22),
                                         ),
-                                        const SizedBox(width: 10),
+                                        const SizedBox(width: 8),
                                         Text(
                                           'Continuar con Google',
                                           style: AppTextStyles.titleMedium.copyWith(
                                             color: const Color(0xFF3C4043),
                                             fontWeight: FontWeight.w600,
-                                            fontSize: isSmallScreen ? 13 : 14,
+                                            fontSize: 13,
                                           ),
                                         ),
                                       ],
@@ -456,18 +681,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             ],
                           ),
                         ),
-                        
-                        if (!isSmallScreen) ...[
-                          const SizedBox(height: 24),
-                          const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              _TrustBadge(icon: Icons.verified_user_outlined, text: 'Acceso privado'),
-                              SizedBox(width: 14),
-                              _TrustBadge(icon: Icons.workspace_premium_outlined, text: 'Templo Premium'),
-                            ],
-                          ),
-                        ],
                       ],
                     ),
                   ),
@@ -498,46 +711,60 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Text(
             label,
             style: AppTextStyles.bodyMedium.copyWith(
-              color: AppColors.textSecondary,
+              color: Colors.white.withOpacity(0.9),
               fontWeight: FontWeight.w600,
-              fontSize: isSmall ? 13 : 14,
+              fontSize: 13,
+              letterSpacing: 0.2,
             ),
           ),
         ),
-        SizedBox(height: isSmall ? 4 : 8),
+        const SizedBox(height: 6),
         Container(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(14),
+            color: const Color(0xFF1A1A1E).withOpacity(0.85),
             border: Border.all(
-              color: AppColors.borderPrimary,
-              width: 1.5,
+              color: AppColors.borderGold.withOpacity(0.45),
+              width: 1.2,
             ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.25),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           child: TextField(
             controller: controller,
             obscureText: obscureText,
             keyboardType: keyboardType,
             style: AppTextStyles.bodyLarge.copyWith(
-              color: AppColors.textPrimary,
-              fontSize: isSmall ? 14 : 16,
+              color: Colors.white,
+              fontSize: 15,
             ),
+            cursorColor: AppColors.gold,
             decoration: InputDecoration(
               hintText: hint,
               hintStyle: AppTextStyles.bodyMedium.copyWith(
-                color: AppColors.textMuted,
-                fontSize: isSmall ? 13 : 14,
+                color: Colors.white.withOpacity(0.35),
+                fontSize: 13,
               ),
-              prefixIcon: Icon(icon, color: AppColors.primaryLight, size: isSmall ? 18 : 22),
+              prefixIcon: Icon(icon, color: AppColors.gold, size: 20),
               suffixIcon: suffixIcon,
               filled: true,
-              fillColor: AppColors.bgSurface.withOpacity(0.6),
+              fillColor: Colors.transparent,
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(14),
                 borderSide: BorderSide.none,
               ),
-              contentPadding: EdgeInsets.symmetric(
-                horizontal: isSmall ? 12 : 16,
-                vertical: isSmall ? 12 : 16,
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(color: AppColors.gold, width: 1.5),
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 13,
               ),
             ),
           ),

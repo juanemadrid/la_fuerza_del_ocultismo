@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/plan_model.dart';
 import '../services/auth_service.dart';
 import '../services/database_service.dart';
+import '../theme/app_theme.dart';
+import '../widgets/mysterious_page_route.dart';
 import 'login_screen.dart';
 import 'pending_approval_screen.dart';
+import 'home_screen.dart';
+import '../widgets/mystic_loader.dart';
 
 class SelectPlanScreen extends StatefulWidget {
   const SelectPlanScreen({super.key});
@@ -263,13 +268,552 @@ class _SelectPlanScreenState extends State<SelectPlanScreen> {
 
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder: (_) => PendingPaymentScreen(plan: _planSeleccionado!),
+        builder: (_) => CheckoutScreen(plan: _planSeleccionado!),
       ),
     );
   }
 }
 
-// ─── Tarjeta de plan ──────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// PANTALLA DE PAGO AUTOMÁTICO SIMULADO (CHECKOUT)
+// ─────────────────────────────────────────────
+class CheckoutScreen extends StatefulWidget {
+  final PlanModel plan;
+
+  const CheckoutScreen({super.key, required this.plan});
+
+  @override
+  State<CheckoutScreen> createState() => _CheckoutScreenState();
+}
+
+class _CheckoutScreenState extends State<CheckoutScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _numeroController = TextEditingController();
+  final _nombreController = TextEditingController();
+  final _expiracionController = TextEditingController();
+  final _cvvController = TextEditingController();
+
+  String _cardNumber = '•••• •••• •••• ••••';
+  String _cardHolder = 'NOMBRE DEL TITULAR';
+  String _expiry = 'MM/AA';
+  bool _procesando = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _numeroController.addListener(() {
+      setState(() {
+        _cardNumber = _numeroController.text.isEmpty
+            ? '•••• •••• •••• ••••'
+            : _numeroController.text;
+      });
+    });
+    _nombreController.addListener(() {
+      setState(() {
+        _cardHolder = _nombreController.text.isEmpty
+            ? 'NOMBRE DEL TITULAR'
+            : _nombreController.text.toUpperCase();
+      });
+    });
+    _expiracionController.addListener(() {
+      setState(() {
+        _expiry = _expiracionController.text.isEmpty
+            ? 'MM/AA'
+            : _expiracionController.text;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _numeroController.dispose();
+    _nombreController.dispose();
+    _expiracionController.dispose();
+    _cvvController.dispose();
+    super.dispose();
+  }
+
+  void _onCardNumberChanged(String value) {
+    String text = value.replaceAll(' ', '');
+    if (text.length > 16) text = text.substring(0, 16);
+    
+    String formatted = '';
+    for (int i = 0; i < text.length; i++) {
+      if (i > 0 && i % 4 == 0) formatted += ' ';
+      formatted += text[i];
+    }
+
+    _numeroController.value = TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+
+  void _onExpiryChanged(String value) {
+    String text = value.replaceAll('/', '');
+    if (text.length > 4) text = text.substring(0, 4);
+
+    String formatted = '';
+    for (int i = 0; i < text.length; i++) {
+      if (i == 2) formatted += '/';
+      formatted += text[i];
+    }
+
+    _expiracionController.value = TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+
+  Future<void> _ejecutarPago() async {
+    if (!_formKey.currentState!.validate()) return;
+    final user = Provider.of<AuthService>(context, listen: false).userModel;
+    if (user == null) return;
+
+    setState(() => _procesando = true);
+
+    await Future.delayed(const Duration(seconds: 3));
+
+    try {
+      await DatabaseService().activateSubscription(user.uid, widget.plan.dias);
+      if (mounted) {
+        await Provider.of<AuthService>(context, listen: false).reloadCurrentUser();
+      }
+      
+      if (mounted) {
+        setState(() => _procesando = false);
+        _mostrarExitoModal();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _procesando = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al procesar el pago: $e')),
+        );
+      }
+    }
+  }
+
+  void _mostrarExitoModal() {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierLabel: 'Pago Exitoso',
+      barrierColor: Colors.black.withOpacity(0.9),
+      transitionDuration: const Duration(milliseconds: 500),
+      pageBuilder: (context, anim1, anim2) {
+        return WillPopScope(
+          onWillPop: () async => false,
+          child: Dialog(
+            backgroundColor: Colors.transparent,
+            child: Container(
+              padding: const EdgeInsets.all(28),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(24),
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF1E0000), Color(0xFF0F0F0F)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                border: Border.all(color: AppColors.gold, width: 1.5),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withOpacity(0.35),
+                    blurRadius: 30,
+                  )
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.green.withOpacity(0.1),
+                      border: Border.all(color: Colors.green, width: 2),
+                    ),
+                    child: const Icon(Icons.check_circle_rounded,
+                        color: Colors.green, size: 44),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    '¡PAGO PROCESADO!',
+                    style: GoogleFonts.cinzel(
+                      color: AppColors.gold,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Tu suscripción al plan "${widget.plan.nombre.toUpperCase()}" ha sido aprobada y activada de forma automática por el sistema.',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.inter(color: Colors.white70, fontSize: 13, height: 1.5),
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(builder: (_) => const HomeScreen()),
+                        (route) => false,
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.gold,
+                      foregroundColor: Colors.black,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                    ),
+                    child: const Text('INGRESAR AL APLICATIVO', style: TextStyle(fontWeight: FontWeight.bold)),
+                  )
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_procesando) {
+      return Scaffold(
+        backgroundColor: const Color(0xFF0D0D0D),
+        body: Center(
+          child: MysticLoader(
+            text: 'Conectando con la pasarela bancaria...\nProcesando pago de ${widget.plan.precioFormateado}...',
+          ),
+        ),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: const Color(0xFF0D0D0D),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF0D0D0D),
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_rounded, color: AppColors.gold, size: 20),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          'PAGO SEGURO',
+          style: GoogleFonts.cinzel(
+            color: AppColors.gold,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 2,
+          ),
+        ),
+      ),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: RadialGradient(
+            center: Alignment.topCenter,
+            radius: 1.5,
+            colors: [Color(0xFF1A0000), Color(0xFF0D0D0D)],
+          ),
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 10, 20, 40),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildVirtualCard(),
+                const SizedBox(height: 24),
+
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.03),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.white12),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'PLAN: ${widget.plan.nombre.toUpperCase()}',
+                            style: GoogleFonts.cinzel(
+                              color: AppColors.gold,
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Membresía por ${widget.plan.dias} días',
+                            style: GoogleFonts.inter(color: Colors.white54, fontSize: 11),
+                          ),
+                        ],
+                      ),
+                      Text(
+                        widget.plan.precioFormateado,
+                        style: GoogleFonts.inter(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                Text(
+                  'Datos de Facturación',
+                  style: GoogleFonts.cinzel(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                _buildTextField(
+                  controller: _nombreController,
+                  label: 'Nombre del Titular',
+                  hint: 'Como aparece en la tarjeta',
+                  validator: (val) => val == null || val.trim().isEmpty ? 'Obligatorio' : null,
+                ),
+                const SizedBox(height: 14),
+
+                _buildTextField(
+                  controller: _numeroController,
+                  label: 'Número de Tarjeta',
+                  hint: '4000 1234 5678 9010',
+                  keyboardType: TextInputType.number,
+                  onChanged: _onCardNumberChanged,
+                  validator: (val) {
+                    if (val == null || val.replaceAll(' ', '').length < 16) {
+                      return 'Número inválido (16 dígitos)';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 14),
+
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: _buildTextField(
+                        controller: _expiracionController,
+                        label: 'Fecha Vence',
+                        hint: 'MM/AA',
+                        keyboardType: TextInputType.number,
+                        onChanged: _onExpiryChanged,
+                        validator: (val) {
+                          if (val == null || val.length < 5) return 'Inválido';
+                          return null;
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      flex: 1,
+                      child: _buildTextField(
+                        controller: _cvvController,
+                        label: 'CVV',
+                        hint: '123',
+                        obscureText: true,
+                        keyboardType: TextInputType.number,
+                        validator: (val) {
+                          if (val == null || val.length < 3) return 'Inválido';
+                          return null;
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.lock_rounded, color: Colors.green, size: 14),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Encriptación SSL segura provista por Stripe',
+                      style: GoogleFonts.inter(color: Colors.white38, fontSize: 11),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+
+                SizedBox(
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed: _ejecutarPago,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: Text(
+                      'PAGAR AHORA Y ACTIVAR',
+                      style: GoogleFonts.cinzel(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVirtualCard() {
+    return Container(
+      height: 180,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF4A0000), Color(0xFF1E0000), Color(0xFF140000)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(color: AppColors.gold.withOpacity(0.5), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withOpacity(0.25),
+            blurRadius: 18,
+          )
+        ],
+      ),
+      padding: const EdgeInsets.all(22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'MEMBRESÍA PREMIUM',
+                style: GoogleFonts.cinzel(
+                  color: AppColors.gold,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 2,
+                ),
+              ),
+              const Icon(Icons.credit_card_rounded, color: AppColors.gold, size: 24),
+            ],
+          ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Container(
+              width: 32,
+              height: 24,
+              decoration: BoxDecoration(
+                color: AppColors.gold.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: AppColors.gold.withOpacity(0.4)),
+              ),
+            ),
+          ),
+          Text(
+            _cardNumber,
+            style: GoogleFonts.spaceMono(
+              color: Colors.white,
+              fontSize: 17,
+              letterSpacing: 1.5,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  _cardHolder,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.spaceMono(
+                    color: Colors.white70,
+                    fontSize: 10,
+                  ),
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    'VENCE',
+                    style: GoogleFonts.spaceMono(color: Colors.white30, fontSize: 6),
+                  ),
+                  Text(
+                    _expiry,
+                    style: GoogleFonts.spaceMono(color: Colors.white70, fontSize: 10),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    TextInputType keyboardType = TextInputType.text,
+    bool obscureText = false,
+    void Function(String)? onChanged,
+    String? Function(String?)? validator,
+  }) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: keyboardType,
+      obscureText: obscureText,
+      onChanged: onChanged,
+      validator: validator,
+      style: GoogleFonts.inter(color: Colors.white, fontSize: 14),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: GoogleFonts.inter(color: AppColors.gold.withOpacity(0.85), fontSize: 13),
+        hintText: hint,
+        hintStyle: GoogleFonts.inter(color: Colors.white30, fontSize: 13),
+        filled: true,
+        fillColor: Colors.white.withOpacity(0.03),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: AppColors.gold.withOpacity(0.3)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.gold),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.primary),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+        ),
+      ),
+    );
+  }
+}
 
 class _PlanCard extends StatelessWidget {
   final PlanModel plan;
@@ -415,254 +959,6 @@ class _PlanCard extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-// ─── Pantalla de pago pendiente ───────────────────────────────────────────────
-
-class PendingPaymentScreen extends StatelessWidget {
-  final PlanModel plan;
-
-  const PendingPaymentScreen({super.key, required this.plan});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF0D0D0D),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: RadialGradient(
-            center: Alignment.center,
-            radius: 1.5,
-            colors: [Color(0xFF1A0000), Color(0xFF0D0D0D)],
-          ),
-        ),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(28),
-            child: Column(
-              children: [
-                const SizedBox(height: 20),
-
-                // Ícono
-                Container(
-                  width: 90,
-                  height: 90,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: const Color(0xFFB71C1C), width: 2),
-                    color: const Color(0xFFB71C1C).withOpacity(0.1),
-                  ),
-                  child: const Icon(
-                    Icons.payment_outlined,
-                    color: Color(0xFFB71C1C),
-                    size: 44,
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                const Text(
-                  'PLAN SELECCIONADO',
-                  style: TextStyle(
-                    color: Color(0xFFB71C1C),
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 3,
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // Resumen del plan
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFFB71C1C).withOpacity(0.4)),
-                    color: const Color(0xFFB71C1C).withOpacity(0.06),
-                  ),
-                  child: Column(
-                    children: [
-                      Text(
-                        plan.nombre,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        plan.precioFormateado,
-                        style: const TextStyle(
-                          color: Color(0xFFB71C1C),
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        '${plan.dias} días de acceso',
-                        style: const TextStyle(color: Colors.white54, fontSize: 14),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // Instrucciones
-                Container(
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.white12),
-                    color: const Color(0xFF1A1A1A),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Row(
-                        children: [
-                          Icon(Icons.info_outline, color: Color(0xFFB71C1C), size: 18),
-                          SizedBox(width: 8),
-                          Text(
-                            'PASOS A SEGUIR',
-                            style: TextStyle(
-                              color: Color(0xFFB71C1C),
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                              letterSpacing: 1,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
-                      _paso('1', 'Contacta al maestro por WhatsApp'),
-                      const SizedBox(height: 10),
-                      _paso('2', 'Realiza el pago de ${plan.precioFormateado}'),
-                      const SizedBox(height: 10),
-                      _paso('3', 'El maestro activará tu membresía'),
-                      const SizedBox(height: 10),
-                      _paso('4', 'Inicia sesión y tendrás acceso completo'),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 28),
-
-                // Botón WhatsApp
-                FutureBuilder<String>(
-                  future: DatabaseService().getWhatsAppLink(),
-                  builder: (context, snapshot) {
-                    final link = snapshot.data ?? '';
-                    return SizedBox(
-                      width: double.infinity,
-                      height: 54,
-                      child: ElevatedButton.icon(
-                        onPressed: link.isNotEmpty
-                            ? () async {
-                                // Mensaje pre-cargado con el plan
-                                final msg = Uri.encodeComponent(
-                                  'Hola! Me registré en La Fuerza del Ocultismo y seleccioné el *${plan.nombre}* (${plan.precioFormateado} - ${plan.dias} días). ¿Cómo procedo con el pago?',
-                                );
-                                final url = Uri.parse('$link?text=$msg');
-                                if (await canLaunchUrl(url)) {
-                                  await launchUrl(url,
-                                      mode: LaunchMode.externalApplication);
-                                }
-                              }
-                            : null,
-                        icon: const Icon(Icons.chat_outlined, size: 22, color: Colors.white),
-                        label: const Text(
-                          'CONTACTAR AL MAESTRO',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1,
-                          ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF25D366),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 14),
-
-                // Cerrar sesión
-                SizedBox(
-                  width: double.infinity,
-                  height: 46,
-                  child: OutlinedButton(
-                    onPressed: () async {
-                      await Provider.of<AuthService>(context, listen: false)
-                          .signOut();
-                      if (context.mounted) {
-                        Navigator.of(context).pushAndRemoveUntil(
-                          MaterialPageRoute(builder: (_) => const LoginScreen()),
-                          (route) => false,
-                        );
-                      }
-                    },
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Colors.white12),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: const Text(
-                      'Cerrar sesión',
-                      style: TextStyle(color: Colors.white38),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _paso(String num, String texto) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 24,
-          height: 24,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: const Color(0xFFB71C1C).withOpacity(0.15),
-            border: Border.all(color: const Color(0xFFB71C1C).withOpacity(0.4)),
-          ),
-          child: Center(
-            child: Text(
-              num,
-              style: const TextStyle(
-                color: Color(0xFFB71C1C),
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            texto,
-            style: const TextStyle(
-              color: Colors.white60,
-              fontSize: 14,
-              height: 1.5,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

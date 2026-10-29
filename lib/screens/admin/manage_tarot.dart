@@ -1,6 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../models/tarot_card_model.dart';
 import '../../services/database_service.dart';
+import '../../services/storage_service.dart';
 
 class ManageTarot extends StatelessWidget {
   const ManageTarot({super.key});
@@ -105,28 +108,44 @@ class ManageTarot extends StatelessWidget {
   Future<void> _cargarCartasDefault(BuildContext context) async {
     final db = DatabaseService();
     final cartasDefault = [
-      {'nombre': 'El Loco', 'significado': 'Nuevos comienzos, espontaneidad, fe en el futuro', 'orden': 0},
-      {'nombre': 'El Mago', 'significado': 'Manifestación, recursos, poder, acción inspirada', 'orden': 1},
-      {'nombre': 'La Sacerdotisa', 'significado': 'Intuición, misterio, subconsciente', 'orden': 2},
-      {'nombre': 'La Emperatriz', 'significado': 'Feminidad, belleza, naturaleza, abundancia', 'orden': 3},
-      {'nombre': 'El Emperador', 'significado': 'Autoridad, estructura, control, padre', 'orden': 4},
-      {'nombre': 'El Hierofante', 'significado': 'Tradición, conformidad, moralidad, ética', 'orden': 5},
-      {'nombre': 'Los Enamorados', 'significado': 'Amor, armonía, relaciones, valores', 'orden': 6},
-      {'nombre': 'El Carro', 'significado': 'Control, voluntad, victoria, determinación', 'orden': 7},
-      {'nombre': 'La Fuerza', 'significado': 'Fuerza interior, coraje, paciencia, compasión', 'orden': 8},
-      {'nombre': 'El Ermitaño', 'significado': 'Búsqueda interior, introspección, guía', 'orden': 9},
-      {'nombre': 'La Rueda de la Fortuna', 'significado': 'Cambio, ciclos, destino, punto de inflexión', 'orden': 10},
-      {'nombre': 'La Justicia', 'significado': 'Justicia, equidad, verdad, ley', 'orden': 11},
-      {'nombre': 'El Colgado', 'significado': 'Pausa, rendición, dejar ir, nueva perspectiva', 'orden': 12},
-      {'nombre': 'La Muerte', 'significado': 'Finales, transformación, transición, liberación', 'orden': 13},
-      {'nombre': 'La Templanza', 'significado': 'Balance, moderación, paciencia, propósito', 'orden': 14},
-      {'nombre': 'El Diablo', 'significado': 'Ataduras, adicción, materialismo, ignorancia', 'orden': 15},
-      {'nombre': 'La Torre', 'significado': 'Cambio repentino, revelación, despertar', 'orden': 16},
-      {'nombre': 'La Estrella', 'significado': 'Esperanza, fe, renovación, espiritualidad', 'orden': 17},
-      {'nombre': 'La Luna', 'significado': 'Ilusión, miedo, ansiedad, subconsciente', 'orden': 18},
-      {'nombre': 'El Sol', 'significado': 'Alegría, éxito, celebración, positividad', 'orden': 19},
-      {'nombre': 'El Juicio', 'significado': 'Juicio, renacimiento, perdón, llamado interior', 'orden': 20},
-      {'nombre': 'El Mundo', 'significado': 'Completitud, logro, viaje, cumplimiento', 'orden': 21},
+      {'nombre': 'El Loco', 'significado': 'Nuevos comienzos, espontaneidad, fe en el camino y libertad de espíritu.', 'orden': 0},
+      {'nombre': 'El Mago', 'significado': 'Poder personal, iniciativa, concentración y la manifestación de tus deseos.', 'orden': 1},
+      {'nombre': 'La Sacerdotisa', 'significado': 'Intuición, misterio, sabiduría interior y el plano espiritual.', 'orden': 2},
+      {'nombre': 'La Emperatriz', 'significado': 'Abundancia, creatividad, fertilidad, naturaleza y plenitud.', 'orden': 3},
+      {'nombre': 'El Sacerdote', 'significado': 'Sabiduría tradicional, enseñanza, guía espiritual y valores establecidos.', 'orden': 4},
+      {'nombre': 'El Amor', 'significado': 'Elecciones importantes, amor, alineación de valores y relaciones.', 'orden': 5},
+      {'nombre': 'El Ermitaño', 'significado': 'Introspección, soledad buscada, reflexión y autodescubrimiento.', 'orden': 6},
+      {'nombre': 'La Rueda de la Fortuna', 'significado': 'Cambio, ciclos, destino y puntos de inflexión inesperados.', 'orden': 7},
+      {'nombre': 'La Fuerza', 'significado': 'Coraje, paciencia, compasión y control sobre los impulsos.', 'orden': 8},
+      {'nombre': 'La Muerte', 'significado': 'Finales necesarios, transformación profunda, transición y liberación.', 'orden': 9},
+      {'nombre': 'La Torre', 'significado': 'Cambio repentino, revelación, despertar espiritual y liberación de ilusiones.', 'orden': 10},
+      {'nombre': 'El Mundo', 'significado': 'Completitud, logro supremo, viaje completado e integración.', 'orden': 11},
+      {'nombre': 'El Bufón', 'significado': 'Diversión, ingenio, ironía y ver la vida desde otra perspectiva.', 'orden': 12},
+      {'nombre': 'El Camino', 'significado': 'Dirección, elecciones de vida, sendero evolutivo y destino.', 'orden': 13},
+      {'nombre': 'El Duende', 'significado': 'Travesura, suerte inesperada, conexión con la naturaleza y magia elemental.', 'orden': 14},
+      {'nombre': 'El Miedo', 'significado': 'Bloqueos mentales, temores inconscientes y la necesidad de superarse.', 'orden': 15},
+      {'nombre': 'El Perdón', 'significado': 'Liberación de resentimientos, paz interior y sanación emocional.', 'orden': 16},
+      {'nombre': 'El Rey', 'significado': 'Liderazgo, control, estabilidad, sabiduría y protección.', 'orden': 17},
+      {'nombre': 'El Viaje', 'significado': 'Movimiento, exploración, cambio de perspectiva y crecimiento personal.', 'orden': 18},
+      {'nombre': 'Gran Premio', 'significado': 'Recompensa merecida, abundancia, éxito rotundo y fortuna.', 'orden': 19},
+      {'nombre': 'La Bruja', 'significado': 'Magia práctica, intuición profunda, conexión con lo sagrado femenino y sabiduría.', 'orden': 20},
+      {'nombre': 'La Envidia', 'significado': 'Celos, energías discordantes externas o internas, y la necesidad de autovaloración.', 'orden': 21},
+      {'nombre': 'La Ira', 'significado': 'Pasión desbordada, enojo acumulado y necesidad de transmutación.', 'orden': 22},
+      {'nombre': 'La Pobreza', 'significado': 'Mentalidad de escasez, dificultades temporales y necesidad de apoyo.', 'orden': 23},
+      {'nombre': 'La Reina', 'significado': 'Poder receptivo, intuición, empatía, madurez emocional y soberanía.', 'orden': 24},
+      {'nombre': 'La Traición', 'significado': 'Decepción, deslealtad, cortes dolorosos y aprendizaje de la confianza.', 'orden': 25},
+      {'nombre': 'Negocios', 'significado': 'Acuerdos comerciales, transacciones, alianzas de trabajo y éxito financiero.', 'orden': 26},
+      {'nombre': 'Oro', 'significado': 'Riqueza material, valor intrínseco, éxito sólido y prosperidad.', 'orden': 27},
+      {'nombre': 'Plata', 'significado': 'Claridad mental, intuición, valor emocional y adaptabilidad.', 'orden': 28},
+      {'nombre': 'Reconciliación', 'significado': 'Unión de opuestos, sanación de relaciones, paz y armonía recobrada.', 'orden': 29},
+      {'nombre': 'Salud', 'significado': 'Bienestar físico, mental y espiritual, vitalidad y equilibrio orgánico.', 'orden': 30},
+      {'nombre': 'Sorpresa', 'significado': 'Eventos inesperados, regalos del destino y giros del destino.', 'orden': 31},
+      {'nombre': 'Suerte', 'significado': 'Buena fortuna, sincronicidades favorables y viento a favor.', 'orden': 32},
+      {'nombre': 'Trabajo', 'significado': 'Esfuerzo constante, dedicación, desarrollo profesional y labor diaria.', 'orden': 33},
+      {'nombre': 'Ángel', 'significado': 'Protección divina, guía celestial, pureza y mensajes de paz.', 'orden': 34},
+      {'nombre': 'Carta Negra', 'significado': 'Energías densas, advertencia, autoanálisis profundo y cautela.', 'orden': 35},
+      {'nombre': 'Carta Blanca', 'significado': 'Posibilidades infinitas, destino libre y poder de elección total.', 'orden': 36},
+      {'nombre': 'Dinero', 'significado': 'Flujo financiero, ingresos, transacciones económicas y seguridad material.', 'orden': 37},
     ];
 
     for (final c in cartasDefault) {
@@ -141,8 +160,8 @@ class ManageTarot extends StatelessWidget {
 
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('22 cartas cargadas exitosamente'),
+        SnackBar(
+          content: Text('${cartasDefault.length} cartas cargadas exitosamente'),
           backgroundColor: Colors.green,
         ),
       );
@@ -168,24 +187,31 @@ class _CartaTile extends StatelessWidget {
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: Container(
-          width: 40,
-          height: 40,
+          width: 36,
+          height: 52,
           decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: const Color(0xFFB71C1C)),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: const Color(0xFFB71C1C).withOpacity(0.5), width: 1),
           ),
-          child: Center(
-            child: Text(
-              '${card.orden + 1}',
-              style: const TextStyle(
-                color: Color(0xFFB71C1C),
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: card.imageUrl != null && card.imageUrl!.isNotEmpty
+                ? Image.network(
+                    card.imageUrl!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Image.asset(
+                      'assets/images/tarot/carta_${card.orden}.png',
+                      fit: BoxFit.cover,
+                    ),
+                  )
+                : Image.asset(
+                    'assets/images/tarot/carta_${card.orden}.png',
+                    fit: BoxFit.cover,
+                  ),
           ),
         ),
         title: Text(
-          card.nombre,
+          '#${card.orden} — ${card.nombre}',
           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
         ),
         subtitle: Text(
@@ -232,7 +258,7 @@ class _CartaTile extends StatelessWidget {
               await DatabaseService().deleteTarotCard(card.id);
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('ELIMINAR'),
+            child: const Text('ELIMINAR', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -254,6 +280,10 @@ class _CartaDialogState extends State<_CartaDialog> {
   late TextEditingController _descripcionCtrl;
   late TextEditingController _ordenCtrl;
   bool _saving = false;
+  
+  File? _imageFile;
+  String? _currentImageUrl;
+  final ImagePicker _picker = ImagePicker();
 
   @override
   void initState() {
@@ -262,6 +292,7 @@ class _CartaDialogState extends State<_CartaDialog> {
     _significadoCtrl = TextEditingController(text: widget.card?.significado ?? '');
     _descripcionCtrl = TextEditingController(text: widget.card?.descripcionExtendida ?? '');
     _ordenCtrl = TextEditingController(text: '${widget.card?.orden ?? 0}');
+    _currentImageUrl = widget.card?.imageUrl;
   }
 
   @override
@@ -271,6 +302,24 @@ class _CartaDialogState extends State<_CartaDialog> {
     _descripcionCtrl.dispose();
     _ordenCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickImage() async {
+    try {
+      final XFile? pickedFile = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 800,
+        maxHeight: 1200,
+        imageQuality: 85,
+      );
+      if (pickedFile != null) {
+        setState(() {
+          _imageFile = File(pickedFile.path);
+        });
+      }
+    } catch (e) {
+      print('Error picking image: $e');
+    }
   }
 
   @override
@@ -290,6 +339,49 @@ class _CartaDialogState extends State<_CartaDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Preview de Imagen
+            GestureDetector(
+              onTap: _pickImage,
+              child: Container(
+                width: 100,
+                height: 160,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFB71C1C).withOpacity(0.5), width: 1.5),
+                  color: Colors.white.withOpacity(0.03),
+                ),
+                child: _imageFile != null
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: Image.file(_imageFile!, fit: BoxFit.cover),
+                      )
+                    : (_currentImageUrl != null && _currentImageUrl!.isNotEmpty)
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: Image.network(
+                              _currentImageUrl!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) => const Icon(
+                                Icons.broken_image_outlined,
+                                color: Colors.white30,
+                                size: 40,
+                              ),
+                            ),
+                          )
+                        : const Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.add_photo_alternate_outlined, color: Colors.white38, size: 32),
+                              SizedBox(height: 6),
+                              Text(
+                                'Añadir Imagen',
+                                style: TextStyle(color: Colors.white38, fontSize: 11),
+                              ),
+                            ],
+                          ),
+              ),
+            ),
+            const SizedBox(height: 16),
             _field(_nombreCtrl, 'Nombre de la carta'),
             const SizedBox(height: 12),
             _field(_significadoCtrl, 'Significado breve', maxLines: 2),
@@ -311,7 +403,7 @@ class _CartaDialogState extends State<_CartaDialog> {
           child: _saving
               ? const SizedBox(width: 16, height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-              : Text(isEdit ? 'GUARDAR' : 'CREAR'),
+              : Text(isEdit ? 'GUARDAR' : 'CREAR', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         ),
       ],
     );
@@ -345,12 +437,19 @@ class _CartaDialogState extends State<_CartaDialog> {
 
     final id = widget.card?.id ??
         'carta_${DateTime.now().millisecondsSinceEpoch}';
+        
+    String? finalImageUrl = _currentImageUrl;
+    if (_imageFile != null) {
+      finalImageUrl = await StorageService().uploadTarotImage(_imageFile!, id);
+    }
+
     final card = TarotCardModel(
       id: id,
       nombre: _nombreCtrl.text.trim(),
       significado: _significadoCtrl.text.trim(),
       descripcionExtendida: _descripcionCtrl.text.trim(),
       orden: int.tryParse(_ordenCtrl.text.trim()) ?? 0,
+      imageUrl: finalImageUrl,
     );
 
     await DatabaseService().saveTarotCard(card);

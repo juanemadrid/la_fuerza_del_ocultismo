@@ -53,8 +53,8 @@ service cloud.firestore {
 
     // ─── HORÓSCOPO ────────────────────────────────────────────────────────────
     match /horoscopes/{sign} {
-      // Cualquier usuario suscrito puede ver el horóscopo
-      allow read: if isSubscribed() || isAdmin();
+      // Cualquier usuario autenticado puede ver el horóscopo
+      allow read: if isAuth() || isAdmin();
 
       // Solo admins pueden actualizar el horóscopo
       allow write: if isAdmin();
@@ -74,7 +74,7 @@ service cloud.firestore {
 
     // ─── TAROT ────────────────────────────────────────────────────────────────
     match /tarot_cards/{docId} {
-      allow read: if isSubscribed() || isAdmin();
+      allow read: if isAuth() || isAdmin();
       allow write: if isAdmin();
     }
 

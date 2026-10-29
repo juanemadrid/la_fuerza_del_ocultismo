@@ -6,6 +6,7 @@ import '../services/database_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/responsive_container.dart';
 import '../widgets/paywall_modal.dart';
+import '../widgets/mystic_loader.dart';
 
 class HoroscopoScreen extends StatefulWidget {
   const HoroscopoScreen({super.key});
@@ -63,13 +64,52 @@ class _HoroscopoScreenState extends State<HoroscopoScreen>
 
   Future<void> _cargarPrediccion(String sign) async {
     setState(() => _isLoading = true);
-    final horoscope = await DatabaseService().getHoroscope(sign);
-    if (mounted) {
-      setState(() {
-        _prediccion = horoscope?.prediction ??
-            'No hay predicción disponible para hoy. Consulta con el maestro.';
-        _isLoading = false;
-      });
+    try {
+      final horoscope = await DatabaseService().getHoroscope(sign);
+      if (mounted) {
+        setState(() {
+          _prediccion = horoscope?.prediction ?? _obtenerPrediccionLocalDeRespaldo(sign);
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _prediccion = _obtenerPrediccionLocalDeRespaldo(sign);
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  String _obtenerPrediccionLocalDeRespaldo(String sign) {
+    switch (sign) {
+      case 'Aries':
+        return 'Las fuerzas celestiales hoy te impulsan a tomar la iniciativa en tus proyectos. Es un día para liderar con sabiduría, controlar la impulsividad y confiar en tu fuerza interior para abrir nuevos caminos.';
+      case 'Tauro':
+        return 'La alineación de Venus te invita a cultivar la paciencia y a disfrutar de la estabilidad. Concéntrate en nutrir tu bienestar material y espiritual; la perseverancia te traerá grandes frutos.';
+      case 'Géminis':
+        return 'Tu regente Mercurio favorece la comunicación y la creatividad. Aprovecha este flujo intelectual para resolver malentendidos y conectar profundamente con quienes te rodean con empatía y claridad.';
+      case 'Cáncer':
+        return 'La Luna, tu regente, potencia tu intuición y sensibilidad. Es un momento propicio para la introspección, sanar lazos afectivos y proteger tu santuario personal con luz positiva.';
+      case 'Leo':
+        return 'El brillo del Sol potencia tu carisma y liderazgo. Las estrellas te sugieren compartir tu generosidad con los demás y canalizar tu fuego creador en proyectos que inspiren tu alma.';
+      case 'Virgo':
+        return 'Un influjo cósmico te brinda claridad mental para organizar tus metas y prioridades. Confía en tu agudeza mental, pero no te exijas demasiado; recuerda que el equilibrio es la verdadera perfección.';
+      case 'Libra':
+        return 'Hoy se favorece la búsqueda de armonía en todas tus relaciones. Es un día ideal para resolver conflictos pacíficamente, encontrar el equilibrio interno y rodearte de belleza y serenidad.';
+      case 'Escorpio':
+        return 'Tu intuición e intensidad emocional están en su punto más alto. Las fuerzas del oráculo te aconsejan transformar las energías negativas en poder personal y confiar en tu capacidad de renacimiento.';
+      case 'Sagitario':
+        return 'Tu regente Júpiter te infunde optimismo y sed de conocimiento espiritual. Abre tu mente a nuevas filosofías y confía en que el universo conspira a tu favor para expandir tus horizontes.';
+      case 'Capricornio':
+        return 'La influencia de Saturno te brinda tenacidad para consolidar tus ambiciones a largo plazo. Avanza con paso firme, pero mantén el corazón abierto a la sensibilidad y al descanso necesario.';
+      case 'Acuario':
+        return 'Tus ideas innovadoras y espíritu humanitario brillarán con fuerza hoy. El cosmos te invita a liberarte de ataduras del pasado y a proyectar tu visión hacia un futuro de libertad y luz.';
+      case 'Piscis':
+        return 'Tus dotes de conexión extrasensorial y empatía mística están en expansión. Dedica tiempo a la meditación, escucha tus sueños proféticos y permite que tu alma se exprese con libertad.';
+      default:
+        return 'Hoy los astros te aconsejan buscar el equilibrio y escuchar los susurros de tu voz interior. El universo guiará tus pasos hacia la paz.';
     }
   }
 
@@ -448,12 +488,10 @@ class _HoroscopoScreenState extends State<HoroscopoScreen>
             ),
           ] else ...[
             const SizedBox(height: 24),
-            if (_isLoading)
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(40.0),
-                  child: CircularProgressIndicator(color: AppColors.primary),
-                ),
+             if (_isLoading)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 40),
+                child: MysticLoader(text: 'Consultando astros...'),
               )
             else if (_prediccion.isNotEmpty)
               _buildPrediccionResult()

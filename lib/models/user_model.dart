@@ -12,8 +12,15 @@ class UserModel {
   final double? pendingPlanPrecio;
   final int? pendingPlanDias;
   final String birthDate;
+
   /// Mes en que el usuario usó su horóscopo gratis. Formato "YYYY-MM" (ej. "2026-06").
   final String? lastFreeHoroscopeMonth;
+
+  /// Mes en que se contabilizaron las cartas de tarot gratis. Formato "YYYY-MM".
+  final String? freeTarotMonth;
+
+  /// Número de cartas de tarot usadas en el mes actual (plan gratis: máx 2).
+  final int freeTarotCardsUsed;
 
   UserModel({
     required this.uid,
@@ -23,13 +30,15 @@ class UserModel {
     this.isSubscribed = false,
     this.zodiacSign = '',
     this.subscriptionExpiry,
-    this.pendingApproval = true,
+    this.pendingApproval = false,
     this.pendingPlanId,
     this.pendingPlanNombre,
     this.pendingPlanPrecio,
     this.pendingPlanDias,
     this.birthDate = '',
     this.lastFreeHoroscopeMonth,
+    this.freeTarotMonth,
+    this.freeTarotCardsUsed = 0,
   });
 
   // Verifica si la membresía está activa en este momento
@@ -47,7 +56,16 @@ class UserModel {
     return lastFreeHoroscopeMonth != currentMonth;
   }
 
-  // Días restantes de membresía
+  /// Cartas de tarot disponibles este mes para plan gratis (máx 2).
+  int get freeTarotCardsAvailable {
+    if (isMembershipActive) return 999; // premium ilimitado
+    final now = DateTime.now();
+    final currentMonth = '${now.year}-${now.month.toString().padLeft(2, '0')}';
+    if (freeTarotMonth != currentMonth) return 2; // nuevo mes, reinicia
+    return (2 - freeTarotCardsUsed).clamp(0, 2);
+  }
+
+  /// Días restantes de membresía
   int get daysRemaining {
     if (subscriptionExpiry == null) return 0;
     final diff = subscriptionExpiry!.difference(DateTime.now()).inDays;
@@ -65,7 +83,7 @@ class UserModel {
       subscriptionExpiry: map['subscriptionExpiry'] != null
           ? (map['subscriptionExpiry'] as dynamic).toDate()
           : null,
-      pendingApproval: map['pendingApproval'] ?? true,
+      pendingApproval: map['pendingApproval'] ?? false,
       pendingPlanId: map['pendingPlanId'],
       pendingPlanNombre: map['pendingPlanNombre'],
       pendingPlanPrecio: map['pendingPlanPrecio'] != null
@@ -74,6 +92,8 @@ class UserModel {
       pendingPlanDias: map['pendingPlanDias'],
       birthDate: map['birthDate'] ?? '',
       lastFreeHoroscopeMonth: map['lastFreeHoroscopeMonth'],
+      freeTarotMonth: map['freeTarotMonth'],
+      freeTarotCardsUsed: map['freeTarotCardsUsed'] ?? 0,
     );
   }
 
@@ -92,6 +112,8 @@ class UserModel {
       'pendingPlanDias': pendingPlanDias,
       'birthDate': birthDate,
       'lastFreeHoroscopeMonth': lastFreeHoroscopeMonth,
+      'freeTarotMonth': freeTarotMonth,
+      'freeTarotCardsUsed': freeTarotCardsUsed,
     };
   }
 }
