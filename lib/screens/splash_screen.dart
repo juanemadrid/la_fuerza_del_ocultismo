@@ -39,12 +39,8 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> _initAndNavigate() async {
-    final minDelay = Future.delayed(const Duration(milliseconds: 950));
     try {
-      final authService = Provider.of<AuthService>(context, listen: false);
-      final currentUser =
-          await authService.resolveInitialUser() ?? FirebaseAuth.instance.currentUser;
-
+      final currentUser = FirebaseAuth.instance.currentUser;
       if (currentUser == null) {
         _targetScreen = const LoginScreen();
       } else {
@@ -58,6 +54,7 @@ class _SplashScreenState extends State<SplashScreen>
         });
 
         if (mounted) {
+          final authService = Provider.of<AuthService>(context, listen: false);
           authService.reloadCurrentUser().catchError((e) {
             debugPrint("Error al recargar usuario en splash: $e");
           });
@@ -68,7 +65,7 @@ class _SplashScreenState extends State<SplashScreen>
       _targetScreen = const LoginScreen();
     }
 
-    await minDelay;
+    await Future.delayed(const Duration(milliseconds: 1000));
     _navigate();
   }
 

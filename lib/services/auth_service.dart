@@ -16,49 +16,6 @@ class AuthService extends ChangeNotifier {
 
   AuthService() {
     _auth.authStateChanges().listen(_onAuthStateChanged);
-    if (kIsWeb) {
-      _handleInitialWebRedirect();
-    }
-  }
-
-  Future<void> _handleInitialWebRedirect() async {
-    try {
-      final UserCredential redirectResult = await _auth.getRedirectResult();
-      if (redirectResult.user != null) {
-        await _ensureUserModelForGoogleUser(redirectResult.user!);
-      }
-    } catch (e) {
-      debugPrint('Info getRedirectResult: $e');
-    }
-  }
-
-  Future<User?> resolveInitialUser() async {
-    if (_auth.currentUser != null) {
-      return _auth.currentUser;
-    }
-    if (kIsWeb) {
-      try {
-        final UserCredential redirectResult = await _auth
-            .getRedirectResult()
-            .timeout(const Duration(seconds: 3));
-        if (redirectResult.user != null) {
-          await _ensureUserModelForGoogleUser(redirectResult.user!);
-          return redirectResult.user;
-        }
-      } catch (e) {
-        debugPrint('resolveInitialUser redirect check: $e');
-      }
-      try {
-        final User? user = await _auth
-            .authStateChanges()
-            .first
-            .timeout(const Duration(milliseconds: 1200));
-        if (user != null) {
-          return user;
-        }
-      } catch (_) {}
-    }
-    return _auth.currentUser;
   }
 
   Future<void> _ensureUserModelForGoogleUser(User user) async {
@@ -165,7 +122,7 @@ class AuthService extends ChangeNotifier {
       case 'cancelled-popup-request':
         return 'Inicio de sesión con Google cancelado.';
       case 'popup-blocked':
-        return 'El navegador bloqueó la ventana de Google. Redirigiendo...';
+        return 'Tu navegador bloqueó la ventana emergente. Permite ventanas emergentes e intenta de nuevo.';
       case 'unauthorized-domain':
         return 'Dominio no autorizado para inicio con Google.';
       default:
@@ -300,34 +257,17 @@ class AuthService extends ChangeNotifier {
     try {
       if (kIsWeb) {
         final GoogleAuthProvider googleProvider = GoogleAuthProvider();
-        googleProvider.addScope('email');
-        googleProvider.addScope('profile');
         googleProvider.setCustomParameters({'prompt': 'select_account'});
 
-        try {
-          // Llamada directa sin await previo para preservar el gesto de usuario en navegadores móviles
-          final UserCredential result = await _auth.signInWithPopup(googleProvider);
-          final User? user = result.user ?? _auth.currentUser;
+        //IMPORTANTE: No usar getRedirectResult() ni signInWithRedirect() porque
+        //inyectan el iframe /__/auth/iframe en window.frames y provocan que
+        //handler.js espere 20s en pantalla blanca al abrir signInWithPopup en móvil.
+        final UserCredential result = await _auth.signInWithPopup(googleProvider);
+        final User? user = result.user ?? _auth.currentUser;
 
-          if (user != null) {
-            await _ensureUserModelForGoogleUser(user);
-            return null;
-          }
-        } on FirebaseAuthException catch (popupError) {
-          // Si el usuario ya quedó autenticado pese al cierre de pestaña en móvil
-          if (_auth.currentUser != null) {
-            await _ensureUserModelForGoogleUser(_auth.currentUser!);
-            return null;
-          }
-
-          // En navegadores móviles que bloquean popups o WebViews integrados, usar redirect automáticamente
-          if (popupError.code == 'popup-blocked' ||
-              popupError.code == 'operation-not-supported-in-this-environment' ||
-              popupError.code == 'cancelled-popup-request') {
-            await _auth.signInWithRedirect(googleProvider);
-            return null;
-          }
-          rethrow;
+        if (user != null) {
+          await _ensureUserModelForGoogleUser(user);
+          return null;
         }
         return null;
       } else {
