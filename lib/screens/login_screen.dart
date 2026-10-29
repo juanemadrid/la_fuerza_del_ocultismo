@@ -28,7 +28,6 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _loading = false;
   bool _googleLoading = false;
   bool _hasNavigated = false;
-  Offset? _googlePointerDownPos;
 
   final LocalAuthentication _localAuth = LocalAuthentication();
   bool _biometricsAvailable = false;
@@ -695,22 +694,12 @@ class _LoginScreenState extends State<LoginScreen> {
                                 height: 48,
                                 child: Listener(
                                   onPointerDown: (event) {
-                                    _googlePointerDownPos = event.position;
                                     if (!_loading && !_googleLoading) {
                                       armGooglePopupOnTouch(
                                         event.position.dx,
                                         event.position.dy,
+                                        _iniciarSesionConGoogle,
                                       );
-                                    }
-                                  },
-                                  onPointerUp: (event) {
-                                    final down = _googlePointerDownPos;
-                                    _googlePointerDownPos = null;
-                                    if (down != null &&
-                                        (event.position - down).distance < 24 &&
-                                        !_loading &&
-                                        !_googleLoading) {
-                                      _iniciarSesionConGoogle();
                                     }
                                   },
                                   child: Material(

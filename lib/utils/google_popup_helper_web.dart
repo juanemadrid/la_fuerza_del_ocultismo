@@ -1,8 +1,11 @@
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 
-void armGooglePopupOnTouch(double x, double y) {
+void armGooglePopupOnTouch(double x, double y, [void Function()? onTrigger]) {
   try {
+    if (onTrigger != null) {
+      globalContext['__triggerDartGoogleSignIn'] = onTrigger.toJS;
+    }
     if (globalContext.has('__armGooglePopupOnTouch')) {
       globalContext.callMethod(
         '__armGooglePopupOnTouch'.toJS,

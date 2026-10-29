@@ -28,7 +28,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _obscureConfirm = true;
   bool _loading = false;
   String? _signoSeleccionado;
-  Offset? _googlePointerDownPos;
 
   static const List<Map<String, String>> _signos = [
     {'nombre': 'Aries',       'icono': '♈', 'fechas': 'Mar 21 – Abr 19'},
@@ -449,21 +448,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           height: 48,
                           child: Listener(
                             onPointerDown: (event) {
-                              _googlePointerDownPos = event.position;
                               if (!_loading) {
                                 armGooglePopupOnTouch(
                                   event.position.dx,
                                   event.position.dy,
+                                  _continuarConGoogle,
                                 );
-                              }
-                            },
-                            onPointerUp: (event) {
-                              final down = _googlePointerDownPos;
-                              _googlePointerDownPos = null;
-                              if (down != null &&
-                                  (event.position - down).distance < 24 &&
-                                  !_loading) {
-                                _continuarConGoogle();
                               }
                             },
                             child: Material(
