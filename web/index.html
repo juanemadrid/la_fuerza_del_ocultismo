@@ -24,37 +24,44 @@
     (function() {
       var origWindowOpen = window.open;
       window.__pendingAuthPopup = null;
+      window.__pendingAuthEventId = null;
       var touchArmState = null;
 
       function isMobileBrowser() {
         return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
       }
 
+      function buildDirectGoogleHandlerUrl(eventId) {
+        var redirectUrl = window.location.href.split('#')[0];
+        return (
+          'https://fuerzadelocultismo.firebaseapp.com/__/auth/handler' +
+          '?apiKey=' + encodeURIComponent('AIzaSyC_E1e7vC8tWoQJk0GquRa6CMA-qkgMq_k') +
+          '&appName=' + encodeURIComponent('[DEFAULT]') +
+          '&authType=' + encodeURIComponent('signInViaPopup') +
+          '&redirectUrl=' + encodeURIComponent(redirectUrl) +
+          '&v=' + encodeURIComponent('11.9.1') +
+          '&eventId=' + encodeURIComponent(eventId) +
+          '&providerId=' + encodeURIComponent('google.com') +
+          '&customParameters=' + encodeURIComponent('{"prompt":"select_account"}') +
+          '&scopes=' + encodeURIComponent('profile')
+        );
+      }
+
       window.__openGooglePopupSync = function() {
         try {
+          touchArmState = null;
           if (!isMobileBrowser()) return;
           if (window.__pendingAuthPopup && !window.__pendingAuthPopup.closed) {
             return;
           }
-          var w = origWindowOpen.call(window, 'about:blank', '_blank');
+          var evId = String(Math.floor(1000000000 + Math.random() * 9000000000));
+          var directUrl = buildDirectGoogleHandlerUrl(evId);
+          // Abrimos directamente la URL real del handler de Google (nunca about:blank)
+          // para que el navegador móvil navegue de inmediato al selector de cuentas de Google.
+          var w = origWindowOpen.call(window, directUrl, '_blank');
           if (w) {
             window.__pendingAuthPopup = w;
-            try {
-              w.document.open();
-              w.document.write(
-                '<!DOCTYPE html><html><head><meta charset="utf-8">' +
-                '<meta name="viewport" content="width=device-width,initial-scale=1">' +
-                '<title>Conectando con Google...</title>' +
-                '<style>body{margin:0;background:#080808;color:#D4AF37;font-family:sans-serif;' +
-                'display:flex;flex-direction:column;align-items:center;justify-content:center;' +
-                'height:100vh;text-align:center}.s{width:38px;height:38px;' +
-                'border:3px solid rgba(212,175,55,0.25);border-top-color:#D4AF37;' +
-                'border-radius:50%;animation:r .8s linear infinite;margin-bottom:16px}' +
-                '@keyframes r{to{transform:rotate(360deg)}}</style></head>' +
-                '<body><div class="s"></div><div>Conectando con Google...</div></body></html>'
-              );
-              w.document.close();
-            } catch (_) {}
+            window.__pendingAuthEventId = evId;
           }
         } catch (_) {}
       };
@@ -71,10 +78,12 @@
           }
         } catch (_) {}
         window.__pendingAuthPopup = null;
+        window.__pendingAuthEventId = null;
         touchArmState = null;
       };
 
-      function onNativeTouchOrClick(ev) {
+      // En fase bubble (false) para que Flutter procese primero el toque y ejecute onTap
+      window.addEventListener('touchend', function(ev) {
         if (!touchArmState) return;
         var state = touchArmState;
         touchArmState = null;
@@ -86,10 +95,7 @@
           if (Math.sqrt(dx * dx + dy * dy) > 24) return;
         }
         window.__openGooglePopupSync();
-      }
-
-      window.addEventListener('touchend', onNativeTouchOrClick, true);
-      window.addEventListener('click', onNativeTouchOrClick, true);
+      }, false);
 
       window.open = function(url, target, features) {
         if (
@@ -100,12 +106,6 @@
         ) {
           var w = window.__pendingAuthPopup;
           window.__pendingAuthPopup = null;
-          try {
-            w.location.replace(url);
-            w.focus();
-          } catch (_) {
-            try { w.location.href = url; } catch (__) {}
-          }
           return w;
         }
         return origWindowOpen.apply(window, arguments);
@@ -117,10 +117,28 @@
           var proto = resolver && resolver.prototype;
           if (proto && !proto.__patchedForMobile) {
             proto.__patchedForMobile = true;
-            // Evita que navegadores móviles rechacen el popup por partición de third-party storage en el iframe
             proto._isIframeWebStorageSupported = function(auth, cb) {
               cb(true);
             };
+            var origOpenPopup = proto._openPopup;
+            if (typeof origOpenPopup === 'function') {
+              proto._openPopup = async function(auth, provider, authType, eventId) {
+                var syncEventId = window.__pendingAuthEventId;
+                window.__pendingAuthEventId = null;
+                var authWin = await origOpenPopup.call(this, auth, provider, authType, syncEventId || eventId);
+                if (authWin && syncEventId) {
+                  try {
+                    Object.defineProperty(authWin, 'associatedEvent', {
+                      configurable: true,
+                      enumerable: true,
+                      get: function() { return null; },
+                      set: function(_) {}
+                    });
+                  } catch (_) {}
+                }
+                return authWin;
+              };
+            }
             var origInit = proto._initialize;
             if (typeof origInit === 'function') {
               proto._initialize = function(auth) {
