@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
 import 'package:email_validator/email_validator.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/auth_service.dart';
@@ -83,7 +85,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     setState(() => _loading = true);
 
-    final authService = AuthService();
+    final authService = Provider.of<AuthService>(context, listen: false);
     final error = await authService.signUp(
       email,
       pass,
@@ -101,6 +103,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
       Navigator.of(context).pushReplacement(
         MysteriousPageRoute(child: const HomeScreen()),
       );
+    }
+  }
+
+  Future<void> _continuarConGoogle() async {
+    if (_loading) return;
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final Future<String?> signInFuture = authService.signInWithGoogle();
+    setState(() => _loading = true);
+
+    try {
+      final String? error = await signInFuture;
+      if (error != null) {
+        if (mounted) _showError(error);
+        return;
+      }
+      if (mounted && FirebaseAuth.instance.currentUser != null) {
+        Navigator.of(context).pushReplacement(
+          MysteriousPageRoute(child: const HomeScreen()),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -129,11 +153,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
         expand: false,
         builder: (_, controller) => Column(
           children: [
-            // Handle
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 14),
               child: Container(
-                width: 40, height: 4,
+                width: 40,
+                height: 4,
                 decoration: BoxDecoration(
                   color: AppColors.gold.withOpacity(0.5),
                   borderRadius: BorderRadius.circular(2),
@@ -153,7 +177,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
             Expanded(
               child: GridView.builder(
                 controller: controller,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 3,
                   crossAxisSpacing: 10,
@@ -193,7 +218,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           Text(
                             signo['nombre']!,
                             style: GoogleFonts.cinzel(
-                              color: isSelected ? AppColors.gold : AppColors.textPrimary,
+                              color: isSelected
+                                  ? AppColors.gold
+                                  : AppColors.textPrimary,
                               fontSize: 12,
                               fontWeight: isSelected
                                   ? FontWeight.bold
@@ -257,7 +284,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         SizedBox(height: isSmallScreen ? 4 : 10),
-
                         Text(
                           'CREAR CUENTA',
                           style: AppTextStyles.displayLarge.copyWith(
@@ -269,7 +295,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           const SizedBox(height: 6),
                           Text(
                             'Crea tu cuenta y accede gratis al portal',
-                            style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
+                            style: AppTextStyles.bodyMedium
+                                .copyWith(color: AppColors.textSecondary),
                           ),
                         ],
                         SizedBox(height: isSmallScreen ? 16 : 32),
@@ -327,8 +354,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   : Icons.visibility_outlined,
                               color: AppColors.textMuted,
                             ),
-                            onPressed: () =>
-                                setState(() => _obscureConfirm = !_obscureConfirm),
+                            onPressed: () => setState(
+                                () => _obscureConfirm = !_obscureConfirm),
                           ),
                         ),
                         SizedBox(height: isSmallScreen ? 10 : 16),
@@ -340,7 +367,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           child: Container(
                             width: double.infinity,
                             padding: EdgeInsets.symmetric(
-                                horizontal: 16, vertical: isSmallScreen ? 11 : 15),
+                              horizontal: 16,
+                              vertical: isSmallScreen ? 11 : 15,
+                            ),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
@@ -369,12 +398,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                               _signos.firstWhere((s) =>
                                                   s['nombre'] ==
                                                   _signoSeleccionado)['icono']!,
-                                              style: const TextStyle(fontSize: 20),
+                                              style:
+                                                  const TextStyle(fontSize: 20),
                                             ),
                                             const SizedBox(width: 8),
                                             Text(
                                               _signoSeleccionado!,
-                                              style: AppTextStyles.bodyLarge.copyWith(
+                                              style: AppTextStyles.bodyLarge
+                                                  .copyWith(
                                                 color: AppColors.textPrimary,
                                                 fontWeight: FontWeight.w500,
                                               ),
@@ -383,41 +414,90 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                         )
                                       : Text(
                                           'Selecciona tu signo',
-                                          style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textMuted),
+                                          style: AppTextStyles.bodyMedium
+                                              .copyWith(
+                                                  color: AppColors.textMuted),
                                         ),
                                 ),
-                                const Icon(Icons.keyboard_arrow_down,
-                                    color: AppColors.textMuted),
+                                const Icon(
+                                  Icons.keyboard_arrow_down,
+                                  color: AppColors.textMuted,
+                                ),
                               ],
                             ),
                           ),
                         ),
-                        SizedBox(height: isSmallScreen ? 16 : 32),
+                        SizedBox(height: isSmallScreen ? 16 : 24),
 
                         // Botón registrar
                         _loading
                             ? const CircularProgressIndicator(
-                                color: AppColors.gold)
+                                color: AppColors.gold,
+                              )
                             : CustomButton(
                                 text: 'CREAR CUENTA',
                                 onPressed: _registrar,
                               ),
 
-                        SizedBox(height: isSmallScreen ? 16 : 24),
+                        const SizedBox(height: 12),
+
+                        // Botón Continuar con Google también en Registro
+                        SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: Material(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(14),
+                              onTap: _loading ? null : _continuarConGoogle,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Image.network(
+                                    'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.png',
+                                    width: 20,
+                                    height: 20,
+                                    errorBuilder: (_, __, ___) => const Icon(
+                                      Icons.g_mobiledata_rounded,
+                                      color: Color(0xFF4285F4),
+                                      size: 24,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Continuar con Google',
+                                    style: AppTextStyles.titleMedium.copyWith(
+                                      color: const Color(0xFF3C4043),
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        SizedBox(height: isSmallScreen ? 14 : 20),
 
                         // Volver al login
                         Center(
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text('¿Ya tienes cuenta? ',
-                                  style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary)),
+                              Text(
+                                '¿Ya tienes cuenta? ',
+                                style: AppTextStyles.bodyMedium
+                                    .copyWith(color: AppColors.textSecondary),
+                              ),
                               TextButton(
                                 onPressed: () => Navigator.pop(context),
                                 style: TextButton.styleFrom(
                                   padding: EdgeInsets.zero,
                                   minimumSize: Size.zero,
-                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
                                 ),
                                 child: Text(
                                   'Iniciar sesión',

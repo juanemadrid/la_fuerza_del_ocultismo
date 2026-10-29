@@ -16,25 +16,124 @@ class AuthService extends ChangeNotifier {
 
   AuthService() {
     _auth.authStateChanges().listen(_onAuthStateChanged);
+    if (kIsWeb) {
+      _handleInitialWebRedirect();
+    }
+  }
+
+  Future<void> _handleInitialWebRedirect() async {
+    try {
+      final UserCredential redirectResult = await _auth.getRedirectResult();
+      if (redirectResult.user != null) {
+        await _ensureUserModelForGoogleUser(redirectResult.user!);
+      }
+    } catch (e) {
+      debugPrint('Info getRedirectResult: $e');
+    }
+  }
+
+  Future<User?> resolveInitialUser() async {
+    if (_auth.currentUser != null) {
+      return _auth.currentUser;
+    }
+    if (kIsWeb) {
+      try {
+        final UserCredential redirectResult = await _auth
+            .getRedirectResult()
+            .timeout(const Duration(seconds: 3));
+        if (redirectResult.user != null) {
+          await _ensureUserModelForGoogleUser(redirectResult.user!);
+          return redirectResult.user;
+        }
+      } catch (e) {
+        debugPrint('resolveInitialUser redirect check: $e');
+      }
+      try {
+        final User? user = await _auth
+            .authStateChanges()
+            .first
+            .timeout(const Duration(milliseconds: 1200));
+        if (user != null) {
+          return user;
+        }
+      } catch (_) {}
+    }
+    return _auth.currentUser;
+  }
+
+  Future<void> _ensureUserModelForGoogleUser(User user) async {
+    final UserModel fallbackUser = UserModel(
+      uid: user.uid,
+      name: (user.displayName != null && user.displayName!.trim().isNotEmpty)
+          ? user.displayName!.trim()
+          : 'Usuario de Google',
+      email: user.email ?? '',
+      role: 'user',
+      isSubscribed: false,
+      zodiacSign: '',
+      pendingApproval: false,
+    );
+
+    // Asignar modelo inmediato para no bloquear la navegación en móvil
+    _userModel ??= fallbackUser;
+    notifyListeners();
+
+    try {
+      final UserModel? existingUser = await DatabaseService()
+          .getUser(user.uid)
+          .timeout(const Duration(seconds: 4));
+
+      if (existingUser == null) {
+        await DatabaseService()
+            .saveUser(fallbackUser)
+            .timeout(const Duration(seconds: 4));
+        _userModel = fallbackUser;
+      } else {
+        _userModel = existingUser;
+      }
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Aviso sincronizando perfil Google en Firestore: $e');
+      DatabaseService().getUser(user.uid).then((existing) {
+        if (existing == null) {
+          DatabaseService().saveUser(fallbackUser).catchError((_) {});
+        } else {
+          _userModel = existing;
+          notifyListeners();
+        }
+      }).catchError((_) {});
+    }
   }
 
   Future<void> _onAuthStateChanged(User? user) async {
     if (user == null) {
       _userModel = null;
     } else {
-      // Si _userModel ya está cargado y coincide con el usuario, evitamos consulta redundante
       if (_userModel == null || _userModel!.uid != user.uid) {
-        _userModel = await DatabaseService().getUser(user.uid);
+        try {
+          _userModel = await DatabaseService()
+              .getUser(user.uid)
+              .timeout(const Duration(seconds: 5));
+        } catch (e) {
+          debugPrint('Error cargando usuario en _onAuthStateChanged: $e');
+        }
+        if (_userModel == null) {
+          await _ensureUserModelForGoogleUser(user);
+        }
       }
 
       // Si es admin, asegurarse que tenga pendingApproval = false
       if (_userModel?.role == 'admin' && (_userModel?.pendingApproval == true)) {
-        await DatabaseService().updateUserRole(user.uid, 'admin');
-        await _db.collection('user').doc(user.uid).update({
-          'pendingApproval': false,
-          'isSubscribed': true,
-        });
-        _userModel = await DatabaseService().getUser(user.uid);
+        try {
+          await DatabaseService().updateUserRole(user.uid, 'admin');
+          await _db.collection('user').doc(user.uid).update({
+            'pendingApproval': false,
+            'isSubscribed': true,
+          });
+          _userModel = await DatabaseService().getUser(user.uid);
+        } catch (e) {
+          debugPrint('Error actualizando estado admin: $e');
+        }
       }
     }
     notifyListeners();
@@ -62,6 +161,13 @@ class AuthService extends ChangeNotifier {
         return 'Esta opción de inicio de sesión no está disponible actualmente.';
       case 'account-exists-with-different-credential':
         return 'Ya existe una cuenta con este correo asociada a otro método de acceso.';
+      case 'popup-closed-by-user':
+      case 'cancelled-popup-request':
+        return 'Inicio de sesión con Google cancelado.';
+      case 'popup-blocked':
+        return 'El navegador bloqueó la ventana de Google. Redirigiendo...';
+      case 'unauthorized-domain':
+        return 'Dominio no autorizado para inicio con Google.';
       default:
         if (e.message != null && e.message!.toLowerCase().contains('credential')) {
           return 'El correo o la contraseña ingresados son incorrectos.';
@@ -72,7 +178,10 @@ class AuthService extends ChangeNotifier {
 
   Future<String?> signIn(String email, String password) async {
     try {
-      UserCredential result = await _auth.signInWithEmailAndPassword(email: email, password: password);
+      UserCredential result = await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
       if (result.user != null) {
         _userModel = await DatabaseService().getUser(result.user!.uid);
         notifyListeners();
@@ -85,7 +194,12 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  Future<String?> signUp(String email, String password, String name, {String zodiacSign = ''}) async {
+  Future<String?> signUp(
+    String email,
+    String password,
+    String name, {
+    String zodiacSign = '',
+  }) async {
     try {
       UserCredential result = await _auth.createUserWithEmailAndPassword(
         email: email,
@@ -104,6 +218,8 @@ class AuthService extends ChangeNotifier {
           pendingApproval: false, // Plan gratuito: acceso directo al app
         );
         await DatabaseService().saveUser(newUser);
+        _userModel = newUser;
+        notifyListeners();
       }
       return null;
     } on FirebaseAuthException catch (e) {
@@ -114,13 +230,16 @@ class AuthService extends ChangeNotifier {
   }
 
   // Crear usuario desde el panel admin sin cerrar sesión del admin
-  Future<String?> createUserAsAdmin(String email, String password, String name, String role) async {
-    // Guardamos las credenciales del admin actual
+  Future<String?> createUserAsAdmin(
+    String email,
+    String password,
+    String name,
+    String role,
+  ) async {
     final adminUser = _auth.currentUser;
     if (adminUser == null) return 'No hay sesión de admin activa';
 
     try {
-      // Creamos el nuevo usuario
       UserCredential result = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
@@ -135,7 +254,6 @@ class AuthService extends ChangeNotifier {
           role: role,
         );
         await DatabaseService().saveUser(userModel);
-        // Cerramos la sesión del nuevo usuario y volvemos a iniciar con el admin
         await _auth.signOut();
       }
       return null;
@@ -164,7 +282,16 @@ class AuthService extends ChangeNotifier {
     if (user == null) {
       _userModel = null;
     } else {
-      _userModel = await DatabaseService().getUser(user.uid);
+      try {
+        _userModel = await DatabaseService()
+            .getUser(user.uid)
+            .timeout(const Duration(seconds: 4));
+      } catch (e) {
+        debugPrint('Error en reloadCurrentUser: $e');
+      }
+      if (_userModel == null) {
+        await _ensureUserModelForGoogleUser(user);
+      }
     }
     notifyListeners();
   }
@@ -173,28 +300,34 @@ class AuthService extends ChangeNotifier {
     try {
       if (kIsWeb) {
         final GoogleAuthProvider googleProvider = GoogleAuthProvider();
-        final UserCredential result = await _auth.signInWithPopup(googleProvider);
-        final User? user = result.user;
+        googleProvider.addScope('email');
+        googleProvider.addScope('profile');
+        googleProvider.setCustomParameters({'prompt': 'select_account'});
 
-        if (user != null) {
-          final UserModel? existingUser = await DatabaseService().getUser(user.uid);
+        try {
+          // Llamada directa sin await previo para preservar el gesto de usuario en navegadores móviles
+          final UserCredential result = await _auth.signInWithPopup(googleProvider);
+          final User? user = result.user ?? _auth.currentUser;
 
-          if (existingUser == null) {
-            final UserModel newUser = UserModel(
-              uid: user.uid,
-              name: user.displayName ?? 'Usuario de Google',
-              email: user.email ?? '',
-              role: 'user',
-              isSubscribed: false,
-              zodiacSign: '',
-              pendingApproval: false,
-            );
-            await DatabaseService().saveUser(newUser);
-            _userModel = newUser;
-          } else {
-            _userModel = existingUser;
+          if (user != null) {
+            await _ensureUserModelForGoogleUser(user);
+            return null;
           }
-          notifyListeners();
+        } on FirebaseAuthException catch (popupError) {
+          // Si el usuario ya quedó autenticado pese al cierre de pestaña en móvil
+          if (_auth.currentUser != null) {
+            await _ensureUserModelForGoogleUser(_auth.currentUser!);
+            return null;
+          }
+
+          // En navegadores móviles que bloquean popups o WebViews integrados, usar redirect automáticamente
+          if (popupError.code == 'popup-blocked' ||
+              popupError.code == 'operation-not-supported-in-this-environment' ||
+              popupError.code == 'cancelled-popup-request') {
+            await _auth.signInWithRedirect(googleProvider);
+            return null;
+          }
+          rethrow;
         }
         return null;
       } else {
@@ -204,41 +337,34 @@ class AuthService extends ChangeNotifier {
           return 'Inicio de sesión cancelado';
         }
 
-        final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+        final GoogleSignInAuthentication googleAuth =
+            await googleUser.authentication;
 
         final OAuthCredential credential = GoogleAuthProvider.credential(
           accessToken: googleAuth.accessToken,
           idToken: googleAuth.idToken,
         );
 
-        final UserCredential result = await _auth.signInWithCredential(credential);
-        final User? user = result.user;
+        final UserCredential result =
+            await _auth.signInWithCredential(credential);
+        final User? user = result.user ?? _auth.currentUser;
 
         if (user != null) {
-          final UserModel? existingUser = await DatabaseService().getUser(user.uid);
-
-          if (existingUser == null) {
-            final UserModel newUser = UserModel(
-              uid: user.uid,
-              name: user.displayName ?? 'Usuario de Google',
-              email: user.email ?? '',
-              role: 'user',
-              isSubscribed: false,
-              zodiacSign: '',
-              pendingApproval: false,
-            );
-            await DatabaseService().saveUser(newUser);
-            _userModel = newUser;
-          } else {
-            _userModel = existingUser;
-          }
-          notifyListeners();
+          await _ensureUserModelForGoogleUser(user);
         }
         return null;
       }
     } on FirebaseAuthException catch (e) {
+      if (_auth.currentUser != null) {
+        await _ensureUserModelForGoogleUser(_auth.currentUser!);
+        return null;
+      }
       return _traducirErrorFirebase(e);
     } catch (e) {
+      if (_auth.currentUser != null) {
+        await _ensureUserModelForGoogleUser(_auth.currentUser!);
+        return null;
+      }
       return 'Error con Google: ${e.toString()}';
     }
   }

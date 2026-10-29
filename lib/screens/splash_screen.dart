@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -8,7 +7,6 @@ import '../services/database_service.dart';
 import '../widgets/occult_logo.dart';
 import 'login_screen.dart';
 import 'home_screen.dart';
-import 'admin/admin_dashboard.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -41,8 +39,12 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> _initAndNavigate() async {
+    final minDelay = Future.delayed(const Duration(milliseconds: 950));
     try {
-      final currentUser = FirebaseAuth.instance.currentUser;
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final currentUser =
+          await authService.resolveInitialUser() ?? FirebaseAuth.instance.currentUser;
+
       if (currentUser == null) {
         _targetScreen = const LoginScreen();
       } else {
@@ -56,7 +58,6 @@ class _SplashScreenState extends State<SplashScreen>
         });
 
         if (mounted) {
-          final authService = Provider.of<AuthService>(context, listen: false);
           authService.reloadCurrentUser().catchError((e) {
             debugPrint("Error al recargar usuario en splash: $e");
           });
@@ -67,7 +68,7 @@ class _SplashScreenState extends State<SplashScreen>
       _targetScreen = const LoginScreen();
     }
 
-    await Future.delayed(const Duration(milliseconds: 1100));
+    await minDelay;
     _navigate();
   }
 

@@ -1,8 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:email_validator/email_validator.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
@@ -10,7 +10,6 @@ import '../theme/app_theme.dart';
 import '../widgets/occult_logo.dart';
 import '../widgets/mysterious_page_route.dart';
 import 'home_screen.dart';
-import 'pending_approval_screen.dart';
 import 'register_screen.dart';
 import 'admin/admin_dashboard.dart';
 
@@ -26,6 +25,8 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _contrasenaController = TextEditingController();
   bool _obscurePassword = true;
   bool _loading = false;
+  bool _hasNavigated = false;
+  StreamSubscription<User?>? _authSub;
 
   final LocalAuthentication _localAuth = LocalAuthentication();
   bool _biometricsAvailable = false;
@@ -36,16 +37,27 @@ class _LoginScreenState extends State<LoginScreen> {
   void initState() {
     super.initState();
     _checkBiometrics();
+    _listenForExternalOrGoogleAuth();
+  }
+
+  void _listenForExternalOrGoogleAuth() {
+    _authSub = FirebaseAuth.instance.authStateChanges().listen((User? user) {
+      if (user != null && mounted && !_hasNavigated && !_loading) {
+        _irAlHome();
+      }
+    });
   }
 
   Future<void> _checkBiometrics() async {
     try {
       final bool canAuthenticateWithBiometrics = await _localAuth.canCheckBiometrics;
-      final bool canAuthenticate = canAuthenticateWithBiometrics || await _localAuth.isDeviceSupported();
-      
+      final bool canAuthenticate =
+          canAuthenticateWithBiometrics || await _localAuth.isDeviceSupported();
+
       if (!canAuthenticate) return;
 
-      final List<BiometricType> availableBiometrics = await _localAuth.getAvailableBiometrics();
+      final List<BiometricType> availableBiometrics =
+          await _localAuth.getAvailableBiometrics();
       if (availableBiometrics.isEmpty) return;
 
       final prefs = await SharedPreferences.getInstance();
@@ -55,12 +67,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (mounted) {
         setState(() {
-          _biometricsAvailable = biometricsEnabled && savedEmail != null && savedPassword != null;
+          _biometricsAvailable =
+              biometricsEnabled && savedEmail != null && savedPassword != null;
           _savedEmail = savedEmail;
           _savedPassword = savedPassword;
         });
 
-        // Intentar autenticar automáticamente si está configurado y hay credenciales
         if (_biometricsAvailable) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             _iniciarSesionConHuella();
@@ -86,7 +98,8 @@ class _LoginScreenState extends State<LoginScreen> {
       if (authenticated) {
         setState(() => _loading = true);
         final authService = Provider.of<AuthService>(context, listen: false);
-        String? loginError = await authService.signIn(_savedEmail!, _savedPassword!);
+        String? loginError =
+            await authService.signIn(_savedEmail!, _savedPassword!);
 
         if (loginError != null) {
           if (mounted) {
@@ -123,8 +136,10 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    final bool canAuthenticateWithBiometrics = await _localAuth.canCheckBiometrics;
-    final bool canAuthenticate = canAuthenticateWithBiometrics || await _localAuth.isDeviceSupported();
+    final bool canAuthenticateWithBiometrics =
+        await _localAuth.canCheckBiometrics;
+    final bool canAuthenticate =
+        canAuthenticateWithBiometrics || await _localAuth.isDeviceSupported();
     if (!canAuthenticate) {
       _irAlHome();
       return;
@@ -146,7 +161,8 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           content: Text(
             '¿Deseas activar el inicio de sesión con tu huella digital para entrar más rápido la próxima vez?',
-            style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
+            style: AppTextStyles.bodyMedium
+                .copyWith(color: AppColors.textPrimary),
           ),
           actions: [
             TextButton(
@@ -158,7 +174,8 @@ class _LoginScreenState extends State<LoginScreen> {
               },
               child: Text(
                 'No, gracias',
-                style: AppTextStyles.titleMedium.copyWith(color: AppColors.textMuted),
+                style: AppTextStyles.titleMedium
+                    .copyWith(color: AppColors.textMuted),
               ),
             ),
             TextButton(
@@ -172,7 +189,10 @@ class _LoginScreenState extends State<LoginScreen> {
               },
               child: Text(
                 'Sí, activar',
-                style: AppTextStyles.titleMedium.copyWith(color: AppColors.gold, fontWeight: FontWeight.bold),
+                style: AppTextStyles.titleMedium.copyWith(
+                  color: AppColors.gold,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],
@@ -182,7 +202,8 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _irAlHome() {
-    if (!mounted) return;
+    if (!mounted || _hasNavigated) return;
+    _hasNavigated = true;
     final user = Provider.of<AuthService>(context, listen: false).userModel;
     if (user?.role == 'admin') {
       Navigator.of(context).pushReplacement(
@@ -197,6 +218,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
+    _authSub?.cancel();
     _usuarioController.dispose();
     _contrasenaController.dispose();
     super.dispose();
@@ -217,7 +239,10 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     if (contrasena.length < 6) {
-      _showSnackBar('La contraseña debe tener al menos 6 caracteres', isError: true);
+      _showSnackBar(
+        'La contraseña debe tener al menos 6 caracteres',
+        isError: true,
+      );
       return;
     }
 
@@ -243,20 +268,17 @@ class _LoginScreenState extends State<LoginScreen> {
           intentos++;
         }
 
-        final user = authService2.userModel;
-
-        // Comprobar preferencias de biometría tras login exitoso
         final prefs = await SharedPreferences.getInstance();
         final biometricsEnabled = prefs.getBool('biometrics_enabled') ?? false;
 
         if (biometricsEnabled) {
-          // Mantener credenciales actualizadas
           await prefs.setString('saved_email', usuario);
           await prefs.setString('saved_password', contrasena);
           _irAlHome();
         } else {
           final yaPreguntado = prefs.getBool('biometrics_asked') ?? false;
-          final bool canAuth = await _localAuth.canCheckBiometrics || await _localAuth.isDeviceSupported();
+          final bool canAuth = await _localAuth.canCheckBiometrics ||
+              await _localAuth.isDeviceSupported();
           if (canAuth && !yaPreguntado) {
             await _preguntarActivarBiometria(usuario, contrasena);
           } else {
@@ -283,7 +305,8 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _olvidoContrasena() {
-    final emailController = TextEditingController(text: _usuarioController.text.trim());
+    final emailController =
+        TextEditingController(text: _usuarioController.text.trim());
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -302,7 +325,8 @@ class _LoginScreenState extends State<LoginScreen> {
           children: [
             Text(
               'Ingresa tu correo y te enviaremos un enlace para restablecer tu contraseña:',
-              style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
+              style: AppTextStyles.bodyMedium
+                  .copyWith(color: AppColors.textPrimary),
             ),
             const SizedBox(height: 16),
             TextField(
@@ -314,12 +338,17 @@ class _LoginScreenState extends State<LoginScreen> {
                 hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
                 filled: true,
                 fillColor: AppColors.bgElevated,
-                prefixIcon: const Icon(Icons.email_outlined, color: AppColors.gold, size: 20),
+                prefixIcon: const Icon(
+                  Icons.email_outlined,
+                  color: AppColors.gold,
+                  size: 20,
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: const BorderSide(color: AppColors.borderGold),
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               ),
             ),
           ],
@@ -329,30 +358,44 @@ class _LoginScreenState extends State<LoginScreen> {
             onPressed: () => Navigator.pop(context),
             child: Text(
               'Cancelar',
-              style: AppTextStyles.titleMedium.copyWith(color: AppColors.textMuted),
+              style: AppTextStyles.titleMedium
+                  .copyWith(color: AppColors.textMuted),
             ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.gold,
               foregroundColor: Colors.black,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             onPressed: () async {
               final email = emailController.text.trim();
               if (email.isEmpty || !EmailValidator.validate(email)) {
-                _showSnackBar('Por favor ingresa un correo válido', isError: true);
+                _showSnackBar(
+                  'Por favor ingresa un correo válido',
+                  isError: true,
+                );
                 return;
               }
               Navigator.pop(context);
               try {
                 await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
-                _showSnackBar('¡Enlace enviado! Revisa tu bandeja de entrada o spam.');
+                _showSnackBar(
+                  '¡Enlace enviado! Revisa tu bandeja de entrada o spam.',
+                );
               } catch (e) {
-                _showSnackBar('No se pudo enviar el correo. Verifica que esté registrado.', isError: true);
+                _showSnackBar(
+                  'No se pudo enviar el correo. Verifica que esté registrado.',
+                  isError: true,
+                );
               }
             },
-            child: const Text('Enviar Enlace', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text(
+              'Enviar Enlace',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
@@ -360,38 +403,28 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _iniciarSesionConGoogle() async {
+    if (_loading) return;
+    final authService = Provider.of<AuthService>(context, listen: false);
+    // Disparamos signInWithGoogle() sincrónicamente antes de setState para que
+    // el navegador móvil no bloquee window.open() como popup no solicitado.
+    final Future<String?> signInFuture = authService.signInWithGoogle();
     setState(() => _loading = true);
+
     try {
-      final authService = Provider.of<AuthService>(context, listen: false);
-      String? error = await authService.signInWithGoogle();
+      final String? error = await signInFuture;
 
       if (error != null) {
         if (mounted) _showSnackBar(error, isError: true);
         return;
       }
 
-      if (mounted) {
+      if (mounted && FirebaseAuth.instance.currentUser != null) {
         int intentos = 0;
-        while (authService.userModel == null && intentos < 10) {
-          await Future.delayed(const Duration(milliseconds: 300));
+        while (authService.userModel == null && intentos < 4) {
+          await Future.delayed(const Duration(milliseconds: 150));
           intentos++;
         }
-
-        final user = authService.userModel;
-
-        if (user?.role == 'admin') {
-          Navigator.of(context).pushReplacement(
-            MysteriousPageRoute(child: const AdminDashboard(isRoot: true)),
-          );
-          return;
-        }
-
-
-
-        // Todos los demás van al HomeScreen
-        Navigator.of(context).pushReplacement(
-          MysteriousPageRoute(child: const HomeScreen()),
-        );
+        _irAlHome();
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -435,7 +468,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       children: [
                         OccultLogo(size: isSmallScreen ? 70 : 85),
                         const SizedBox(height: 12),
-                        
                         Text(
                           'LA FUERZA',
                           style: AppTextStyles.displayLarge.copyWith(
@@ -452,9 +484,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             fontWeight: FontWeight.w700,
                           ),
                         ),
-                        
                         SizedBox(height: isSmallScreen ? 14 : 18),
-                        
                         Container(
                           width: double.infinity,
                           padding: EdgeInsets.symmetric(
@@ -496,9 +526,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   fontSize: 12,
                                 ),
                               ),
-                              
                               const SizedBox(height: 16),
-                              
                               _buildField(
                                 controller: _usuarioController,
                                 label: 'Correo Electrónico',
@@ -508,7 +536,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                 isSmall: isSmallScreen,
                               ),
                               const SizedBox(height: 12),
-                              
                               _buildField(
                                 controller: _contrasenaController,
                                 label: 'Contraseña',
@@ -518,7 +545,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                 isSmall: isSmallScreen,
                                 suffixIcon: IconButton(
                                   onPressed: () => setState(
-                                      () => _obscurePassword = !_obscurePassword),
+                                    () => _obscurePassword = !_obscurePassword,
+                                  ),
                                   icon: Icon(
                                     _obscurePassword
                                         ? Icons.visibility_off_outlined
@@ -528,16 +556,17 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                                 ),
                               ),
-                              
                               const SizedBox(height: 4),
                               Align(
                                 alignment: Alignment.centerRight,
                                 child: TextButton(
                                   onPressed: _olvidoContrasena,
                                   style: TextButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(vertical: 4),
+                                    padding:
+                                        const EdgeInsets.symmetric(vertical: 4),
                                     minimumSize: Size.zero,
-                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
                                   ),
                                   child: Text(
                                     '¿Olvidaste tu contraseña?',
@@ -549,14 +578,13 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                                 ),
                               ),
-                              
                               const SizedBox(height: 14),
-                              
                               Row(
                                 children: [
                                   Expanded(
                                     child: GlowButton(
-                                      onPressed: _loading ? null : _iniciarSesion,
+                                      onPressed:
+                                          _loading ? null : _iniciarSesion,
                                       gradient: AppGradients.goldButton,
                                       glowColor: AppColors.gold,
                                       height: 48,
@@ -566,17 +594,21 @@ class _LoginScreenState extends State<LoginScreen> {
                                               height: 22,
                                               child: CircularProgressIndicator(
                                                 strokeWidth: 2.5,
-                                                valueColor: AlwaysStoppedAnimation<Color>(AppColors.bgBase),
+                                                valueColor:
+                                                    AlwaysStoppedAnimation<
+                                                      Color
+                                                    >(AppColors.bgBase),
                                               ),
                                             )
                                           : Text(
                                               'INICIAR SESIÓN',
-                                              style: AppTextStyles.titleMedium.copyWith(
-                                                color: AppColors.bgBase,
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 13,
-                                                letterSpacing: 0.5,
-                                              ),
+                                              style: AppTextStyles.titleMedium
+                                                  .copyWith(
+                                                    color: AppColors.bgBase,
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 13,
+                                                    letterSpacing: 0.5,
+                                                  ),
                                             ),
                                     ),
                                   ),
@@ -588,13 +620,16 @@ class _LoginScreenState extends State<LoginScreen> {
                                       decoration: BoxDecoration(
                                         borderRadius: BorderRadius.circular(14),
                                         border: Border.all(
-                                          color: AppColors.borderGold.withOpacity(0.6),
+                                          color: AppColors.borderGold
+                                              .withOpacity(0.6),
                                           width: 1.2,
                                         ),
                                         color: const Color(0xFF1C1C1F),
                                       ),
                                       child: IconButton(
-                                        onPressed: _loading ? null : _iniciarSesionConHuella,
+                                        onPressed: _loading
+                                            ? null
+                                            : _iniciarSesionConHuella,
                                         icon: const Icon(
                                           Icons.fingerprint_rounded,
                                           color: AppColors.gold,
@@ -605,14 +640,19 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ],
                                 ],
                               ),
-                              
                               const SizedBox(height: 14),
-                              
                               Row(
                                 children: [
-                                  Expanded(child: Container(height: 1, color: Colors.white.withOpacity(0.1))),
+                                  Expanded(
+                                    child: Container(
+                                      height: 1,
+                                      color: Colors.white.withOpacity(0.1),
+                                    ),
+                                  ),
                                   Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                    ),
                                     child: Text(
                                       'o',
                                       style: AppTextStyles.bodySmall.copyWith(
@@ -621,16 +661,21 @@ class _LoginScreenState extends State<LoginScreen> {
                                       ),
                                     ),
                                   ),
-                                  Expanded(child: Container(height: 1, color: Colors.white.withOpacity(0.1))),
+                                  Expanded(
+                                    child: Container(
+                                      height: 1,
+                                      color: Colors.white.withOpacity(0.1),
+                                    ),
+                                  ),
                                 ],
                               ),
-                              
                               const SizedBox(height: 14),
-                              
                               OutlineButton(
                                 onPressed: () => Navigator.push(
                                   context,
-                                  MysteriousPageRoute(child: const RegisterScreen()),
+                                  MysteriousPageRoute(
+                                    child: const RegisterScreen(),
+                                  ),
                                 ),
                                 height: 48,
                                 child: Text(
@@ -643,7 +688,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                                 ),
                               ),
-                              
                               const SizedBox(height: 10),
 
                               // Botón Google Sign-In
@@ -654,24 +698,33 @@ class _LoginScreenState extends State<LoginScreen> {
                                   borderRadius: BorderRadius.circular(14),
                                   child: InkWell(
                                     borderRadius: BorderRadius.circular(14),
-                                    onTap: _loading ? null : _iniciarSesionConGoogle,
+                                    onTap: _loading
+                                        ? null
+                                        : _iniciarSesionConGoogle,
                                     child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
                                         Image.network(
-                                          'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg',
+                                          'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.png',
                                           width: 20,
                                           height: 20,
-                                          errorBuilder: (_, __, ___) => const Icon(Icons.g_mobiledata, size: 22),
+                                          errorBuilder: (_, __, ___) =>
+                                              const Icon(
+                                                Icons.g_mobiledata_rounded,
+                                                color: Color(0xFF4285F4),
+                                                size: 24,
+                                              ),
                                         ),
                                         const SizedBox(width: 8),
                                         Text(
                                           'Continuar con Google',
-                                          style: AppTextStyles.titleMedium.copyWith(
-                                            color: const Color(0xFF3C4043),
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 13,
-                                          ),
+                                          style: AppTextStyles.titleMedium
+                                              .copyWith(
+                                                color: const Color(0xFF3C4043),
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 13,
+                                              ),
                                         ),
                                       ],
                                     ),
@@ -770,40 +823,6 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _TrustBadge extends StatelessWidget {
-  final IconData icon;
-  final String text;
-
-  const _TrustBadge({required this.icon, required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppColors.bgSurface.withOpacity(0.5),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: AppColors.borderGold),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: AppColors.gold, size: 14),
-          const SizedBox(width: 6),
-          Text(
-            text,
-            style: AppTextStyles.bodySmall.copyWith(
-              color: AppColors.textSecondary,
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
