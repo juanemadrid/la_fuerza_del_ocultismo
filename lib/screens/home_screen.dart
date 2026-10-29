@@ -156,20 +156,15 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ShaderMask(
-                  blendMode: BlendMode.srcIn,
-                  shaderCallback: (bounds) => const LinearGradient(
-                    colors: [AppColors.gold, AppColors.primaryLight],
-                  ).createShader(bounds),
-                  child: Text(
-                    'LA FUERZA DEL OCULTISMO',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.cinzel(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.8,
-                    ),
+                Text(
+                  'LA FUERZA DEL OCULTISMO',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.cinzel(
+                    color: AppColors.gold,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.8,
                   ),
                 ),
                 const SizedBox(height: 1),
@@ -934,25 +929,20 @@ class _ArcaneCirclePainter extends CustomPainter {
         ..strokeWidth = 0.9,
     );
 
-    // Runas rotando en sentido horario
-    for (int i = 0; i < _runes.length; i++) {
-      final a = (orbitAngle * 0.7) + (i * 2 * math.pi / _runes.length);
+    // Sellos geométricos girando en sentido horario (sin TextPainter para 0 fugas de memoria en Web móvil)
+    const int sealCount = 12;
+    for (int i = 0; i < sealCount; i++) {
+      final a = (orbitAngle * 0.7) + (i * 2 * math.pi / sealCount);
       final rxPos = cx + (coreR * 1.01) * math.cos(a);
       final ryPos = cy + (coreR * 1.01) * math.sin(a);
+      final nodeColor = (i.isEven ? AppColors.gold : const Color(0xFFEF233C))
+          .withOpacity(0.55 + 0.25 * pulse);
 
-      final tp = TextPainter(
-        text: TextSpan(
-          text: _runes[i],
-          style: TextStyle(
-            color: (i.isEven ? AppColors.gold : const Color(0xFFEF233C))
-                .withOpacity(0.50 + 0.25 * pulse),
-            fontSize: 8.5,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      tp.paint(canvas, Offset(rxPos - tp.width / 2, ryPos - tp.height / 2));
+      canvas.drawCircle(
+        Offset(rxPos, ryPos),
+        i % 3 == 0 ? 2.4 : 1.5,
+        Paint()..color = nodeColor,
+      );
     }
 
     // 5. Pentagrama invertido rotando en sentido antihorario en el núcleo
@@ -1083,21 +1073,19 @@ class _CompactServiceCard extends StatelessWidget {
               ),
             ],
           ),
-          child: Stack(
-            children: [
-              // Runa mística de marca de agua en la esquina
-              Positioned(
-                right: 0,
-                bottom: -4,
-                child: Text(
-                  data.rune,
-                  style: TextStyle(
-                    color: data.accentColor.withOpacity(0.11),
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
+          child: MediaQuery.withNoTextScaling(
+            child: Stack(
+              children: [
+                // Símbolo místico de marca de agua en la esquina
+                Positioned(
+                  right: -2,
+                  bottom: -2,
+                  child: Icon(
+                    data.icon,
+                    color: data.accentColor.withOpacity(0.10),
+                    size: 28,
                   ),
                 ),
-              ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1195,6 +1183,7 @@ class _CompactServiceCard extends StatelessWidget {
                 ],
               ),
             ],
+          ),
           ),
         ),
       ),

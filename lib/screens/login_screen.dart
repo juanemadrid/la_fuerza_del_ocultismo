@@ -26,7 +26,6 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
   bool _loading = false;
   bool _hasNavigated = false;
-  StreamSubscription<User?>? _authSub;
 
   final LocalAuthentication _localAuth = LocalAuthentication();
   bool _biometricsAvailable = false;
@@ -37,15 +36,6 @@ class _LoginScreenState extends State<LoginScreen> {
   void initState() {
     super.initState();
     _checkBiometrics();
-    _listenForExternalOrGoogleAuth();
-  }
-
-  void _listenForExternalOrGoogleAuth() {
-    _authSub = FirebaseAuth.instance.authStateChanges().listen((User? user) {
-      if (user != null && mounted && !_hasNavigated && !_loading) {
-        _irAlHome();
-      }
-    });
   }
 
   Future<void> _checkBiometrics() async {
@@ -218,7 +208,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
-    _authSub?.cancel();
     _usuarioController.dispose();
     _contrasenaController.dispose();
     super.dispose();

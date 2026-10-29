@@ -10,6 +10,13 @@ import 'services/auth_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final logger = Logger();
+
+  // Evita que errores de renderizado muestren la pantalla blanca/gris por defecto en release
+  ErrorWidget.builder = (FlutterErrorDetails details) {
+    debugPrint('Flutter ErrorWidget: ${details.exceptionAsString()}');
+    return const ColoredBox(color: Color(0xFF080808));
+  };
+
   try {
     if (Firebase.apps.isEmpty) {
       await Firebase.initializeApp(

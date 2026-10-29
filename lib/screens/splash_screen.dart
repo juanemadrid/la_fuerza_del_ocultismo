@@ -20,7 +20,6 @@ class _SplashScreenState extends State<SplashScreen>
   late final AnimationController _ctrl;
   late final Animation<double> _fadeIn;
   bool _navigated = false;
-  Widget _targetScreen = const LoginScreen();
 
   @override
   void initState() {
@@ -28,7 +27,7 @@ class _SplashScreenState extends State<SplashScreen>
 
     _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 900),
+      duration: const Duration(milliseconds: 850),
     );
     _fadeIn = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
     _ctrl.forward();
@@ -39,14 +38,28 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> _initAndNavigate() async {
-    try {
-      final currentUser = FirebaseAuth.instance.currentUser;
-      if (currentUser == null) {
-        _targetScreen = const LoginScreen();
-      } else {
-        _targetScreen = const HomeScreen();
+    // Esperamos primero a que se muestre el logo y que Firebase Web restaure IndexedDB en móvil
+    await Future.delayed(const Duration(milliseconds: 950));
+    if (!mounted || _navigated) return;
 
-        // Sincronizar estado en segundo plano sin bloquear el inicio
+    Widget targetScreen = const LoginScreen();
+
+    try {
+      User? currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) {
+        try {
+          currentUser = await FirebaseAuth.instance
+              .authStateChanges()
+              .first
+              .timeout(const Duration(milliseconds: 400));
+        } catch (_) {}
+      }
+
+      if (currentUser == null) {
+        targetScreen = const LoginScreen();
+      } else {
+        targetScreen = const HomeScreen();
+
         DatabaseService()
             .checkAndUpdateExpiredSubscription(currentUser.uid)
             .catchError((e) {
@@ -62,19 +75,14 @@ class _SplashScreenState extends State<SplashScreen>
       }
     } catch (e) {
       debugPrint("Error en splash checkAuth: $e");
-      _targetScreen = const LoginScreen();
+      targetScreen = const LoginScreen();
     }
 
-    await Future.delayed(const Duration(milliseconds: 1000));
-    _navigate();
-  }
-
-  void _navigate() {
     if (!mounted || _navigated) return;
     _navigated = true;
     _ctrl.stop();
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => _targetScreen),
+      MaterialPageRoute(builder: (_) => targetScreen),
     );
   }
 
@@ -119,8 +127,8 @@ class _SplashScreenState extends State<SplashScreen>
                 'DEL OCULTISMO',
                 style: GoogleFonts.cinzel(
                   color: const Color(0xFFD4AF37),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
                   letterSpacing: 4,
                 ),
               ),
