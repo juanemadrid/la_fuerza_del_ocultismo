@@ -282,17 +282,16 @@ class AuthService extends ChangeNotifier {
           'hl': 'es',
         });
 
-        final bool isMobileWeb = defaultTargetPlatform == TargetPlatform.android ||
-            defaultTargetPlatform == TargetPlatform.iOS;
+        // Solo Android usa redirección. En iPhone (Safari/WebKit bloquea el
+        // almacenamiento de terceros) la redirección vuelve a la app sin sesión,
+        // así que ahí se usa la ventana emergente, como recomienda Firebase.
+        final bool useRedirect = defaultTargetPlatform == TargetPlatform.android;
 
-        if (isMobileWeb) {
-          // En navegadores móviles (Chrome/Safari móvil), signInWithRedirect es el método
-          // estándar recomendado por Firebase para evitar bloqueos de popups y desvinculación de pestañas.
+        if (useRedirect) {
           await _auth.signInWithRedirect(googleProvider);
           return null;
         } else {
-          // En computadores (Chrome, Edge, Firefox, etc.) signInWithPopup funciona limpiamente
-          // sin recargar la página.
+          // iPhone y computadores: ventana emergente, sin recargar la página.
           final UserCredential result =
               await _auth.signInWithPopup(googleProvider);
           final User? user = result.user ?? _auth.currentUser;
