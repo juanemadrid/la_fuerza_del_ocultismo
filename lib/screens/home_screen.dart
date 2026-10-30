@@ -633,31 +633,17 @@ class MysticServicesCircle extends StatefulWidget {
 
 class _MysticServicesCircleState extends State<MysticServicesCircle>
     with TickerProviderStateMixin {
+  // Giro constante de los recuadros alrededor del sello (una vuelta cada 28 s).
   late final AnimationController _orbitCtrl;
+  // Pulso suave de brillo del sello y del humo.
   late final AnimationController _pulseCtrl;
-  bool _paused = false;
-  void _syncMotion() {
-    if (_paused || MediaQuery.of(context).disableAnimations) {
-      _orbitCtrl.stop();
-      _pulseCtrl.stop();
-    } else {
-      _orbitCtrl.repeat();
-      _pulseCtrl.repeat(reverse: true);
-    }
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _syncMotion();
-  }
 
   @override
   void initState() {
     super.initState();
     _orbitCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 26),
+      duration: const Duration(seconds: 28),
     )..repeat();
 
     _pulseCtrl = AnimationController(
@@ -672,6 +658,12 @@ class _MysticServicesCircleState extends State<MysticServicesCircle>
     _pulseCtrl.dispose();
     super.dispose();
   }
+
+  /// Ángulo de cada recuadro sobre la órbita. Arrancan en las diagonales
+  /// (arriba-izquierda, arriba-derecha, abajo-derecha, abajo-izquierda) y
+  /// giran juntos en sentido horario.
+  static double cardAngle(double orbit, int index) =>
+      orbit * 2 * math.pi - (3 * math.pi / 4) + index * (math.pi / 2);
 
   @override
   Widget build(BuildContext context) {
@@ -718,23 +710,6 @@ class _MysticServicesCircleState extends State<MysticServicesCircle>
         onTap: () => widget.onOpen(const HoroscopoScreen()),
       ),
       _ServiceNodeData(
-        icon: Icons.water_drop_rounded,
-        title: 'Limpiezas',
-        subtitle: 'Cuerpo, hogar y protección',
-        rune: 'ᚦ',
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF0D2826), Color(0xFF071413)],
-        ),
-        accentColor: const Color(0xFF2DD4BF),
-        badgeText: 'PUREZA',
-        badgeTextColor: const Color(0xFF2DD4BF),
-        badgeColor: const Color(0x222DD4BF),
-        badgeBorderColor: const Color(0x552DD4BF),
-        onTap: () => widget.onOpen(const LimpiezasScreen()),
-      ),
-      _ServiceNodeData(
         icon: Icons.local_fire_department_rounded,
         title: 'Rituales',
         subtitle: 'Amor, dinero y caminos',
@@ -751,122 +726,157 @@ class _MysticServicesCircleState extends State<MysticServicesCircle>
         badgeBorderColor: const Color(0x55F87171),
         onTap: () => widget.onOpen(const RitualesScreen()),
       ),
+      _ServiceNodeData(
+        icon: Icons.water_drop_rounded,
+        title: 'Limpiezas',
+        subtitle: 'Cuerpo, hogar y protección',
+        rune: 'ᚦ',
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF0D2826), Color(0xFF071413)],
+        ),
+        accentColor: const Color(0xFF2DD4BF),
+        badgeText: 'PUREZA',
+        badgeTextColor: const Color(0xFF2DD4BF),
+        badgeColor: const Color(0x222DD4BF),
+        badgeBorderColor: const Color(0x552DD4BF),
+        onTap: () => widget.onOpen(const LimpiezasScreen()),
+      ),
     ];
+    final accents = services.map((s) => s.accentColor).toList();
 
     return LayoutBuilder(builder: (context, constraints) {
       final width = math.min(constraints.maxWidth, 600.0);
       final largeText = MediaQuery.textScalerOf(context).scale(14) > 18;
-      final cardW = ((width - 48) / 2).clamp(100.0, 210.0);
+      // Ancho del recuadro calculado para que dos recuadros vecinos nunca se
+      // monten uno sobre otro mientras giran, incluso en celulares angostos.
+      final cardW = (width * 0.40).clamp(118.0, 200.0);
       final cardH = largeText ? 150.0 : 102.0;
-      final height = largeText ? 550.0 : 470.0;
-      final centers = [
-        Offset(width * .26, cardH / 2 + 28),
-        Offset(width * .74, cardH / 2 + 28),
-        Offset(width * .26, height - cardH / 2 - 18),
-        Offset(width * .74, height - cardH / 2 - 18),
-      ];
+      final rx = math.max(40.0, (width - cardW) / 2 - 4);
+      final ry = largeText ? 185.0 : 150.0;
+      final height = ry * 2 + cardH + 12;
+
       return Center(
-          child: SizedBox(
-              width: width,
-              child: Column(children: [
-                RepaintBoundary(
-                    child: SizedBox(
-                  height: height,
-                  child: AnimatedBuilder(
-                    animation: Listenable.merge([_orbitCtrl, _pulseCtrl]),
-                    builder: (context, _) => Stack(children: [
-                      Positioned.fill(
-                          child: IgnorePointer(
-                              child: CustomPaint(
-                                  painter: _IncensePainter(_orbitCtrl.value)))),
-                      Positioned.fill(
-                          child: IgnorePointer(
-                              child: CustomPaint(
-                                  painter: _ArcaneCirclePainter(
-                        orbitAngle: _orbitCtrl.value * 2 * math.pi,
-                        pulse: _pulseCtrl.value,
-                        rx: math.min(width * .34, 180),
-                        ry: 155,
-                        cardCenters: centers,
-                        accentColors:
-                            services.map((s) => s.accentColor).toList(),
-                      )))),
-                      for (int i = 0; i < services.length; i++)
-                        _buildOrbitingCard(
-                            index: i,
-                            baseAngle: 0,
-                            pulse: 0,
-                            center: centers[i],
-                            cardW: cardW,
-                            cardH: cardH,
-                            service: services[i]),
-                    ]),
-                  ),
-                )),
-                TextButton.icon(
-                  onPressed: () {
-                    setState(() => _paused = !_paused);
-                    _syncMotion();
-                  },
-                  icon: Icon(
-                      _paused ? Icons.play_arrow_rounded : Icons.pause_rounded,
-                      size: 18),
-                  label: Text(_paused ? 'Activar ambiente' : 'Pausar ambiente'),
-                  style: TextButton.styleFrom(
-                      foregroundColor: AppColors.textMuted),
+        child: SizedBox(
+          width: width,
+          height: height,
+          child: Stack(children: [
+            // Capa estática (resplandor de fondo): se pinta una sola vez.
+            Positioned.fill(
+              child: RepaintBoundary(
+                child: IgnorePointer(
+                  child: CustomPaint(
+                      painter: _StaticGlowPainter(rx: rx, ry: ry)),
                 ),
-              ])));
-    });
-  }
-
-  Widget _buildOrbitingCard({
-    required int index,
-    required double baseAngle,
-    required double pulse,
-    required Offset center,
-    required double cardW,
-    required double cardH,
-    required _ServiceNodeData service,
-  }) {
-    final angle = baseAngle - (math.pi / 2) + (index * math.pi / 2);
-    final topProximity = ((1.0 - math.sin(angle)) * 0.5).clamp(0.0, 1.0);
-    const scale = 1.0;
-
-    return Positioned(
-      left: center.dx - cardW / 2,
-      top: center.dy - cardH / 2,
-      width: cardW,
-      height: cardH,
-      child: Transform.scale(
-        scale: scale,
-        child: _CompactServiceCard(
-          data: service,
-          highlightIntensity: topProximity,
-          pulse: pulse,
+              ),
+            ),
+            // Capa animada: humo, sello y recuadros girando.
+            Positioned.fill(
+              child: RepaintBoundary(
+                child: AnimatedBuilder(
+                  animation: Listenable.merge([_orbitCtrl, _pulseCtrl]),
+                  builder: (context, _) {
+                    final orbit = _orbitCtrl.value;
+                    final pulse = _pulseCtrl.value;
+                    final cx = width / 2;
+                    final cy = height / 2;
+                    final centers = List<Offset>.generate(4, (i) {
+                      final a = cardAngle(orbit, i);
+                      return Offset(
+                          cx + rx * math.cos(a), cy + ry * math.sin(a));
+                    });
+                    return Stack(children: [
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: CustomPaint(
+                            painter: _ArcaneCirclePainter(
+                              orbit: orbit,
+                              pulse: pulse,
+                              rx: rx,
+                              ry: ry,
+                              cardCenters: centers,
+                              accentColors: accents,
+                            ),
+                          ),
+                        ),
+                      ),
+                      for (int i = 0; i < services.length; i++)
+                        Positioned(
+                          left: centers[i].dx - cardW / 2,
+                          top: centers[i].dy - cardH / 2,
+                          width: cardW,
+                          height: cardH,
+                          child: _CompactServiceCard(
+                            data: services[i],
+                            // Brilla más el recuadro que pasa por arriba.
+                            highlightIntensity: ((1.0 -
+                                        math.sin(cardAngle(orbit, i))) *
+                                    0.5)
+                                .clamp(0.0, 1.0),
+                            pulse: pulse,
+                          ),
+                        ),
+                    ]);
+                  },
+                ),
+              ),
+            ),
+          ]),
         ),
-      ),
-    );
+      );
+    });
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PAINTER DEL CÍRCULO RITUAL ARCANO
+// RESPLANDOR ESTÁTICO DE FONDO (se dibuja una vez, no en cada cuadro)
+// ─────────────────────────────────────────────────────────────────────────────
+class _StaticGlowPainter extends CustomPainter {
+  final double rx;
+  final double ry;
+  const _StaticGlowPainter({required this.rx, required this.ry});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final r = math.max(rx, ry) * 1.15;
+    canvas.drawCircle(
+      center,
+      r,
+      Paint()
+        ..shader = RadialGradient(
+          colors: [
+            const Color(0xFF8B0000).withValues(alpha: 0.28),
+            const Color(0xFFD4AF37).withValues(alpha: 0.06),
+            Colors.transparent,
+          ],
+          stops: const [0.0, 0.5, 1.0],
+        ).createShader(Rect.fromCircle(center: center, radius: r)),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _StaticGlowPainter old) =>
+      old.rx != rx || old.ry != ry;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PAINTER DEL CÍRCULO RITUAL ARCANO + ESTELAS DE HUMO
+// Solo usa colores sólidos con transparencia (sin shaders ni blur por cuadro):
+// los gradientes creados 60 veces por segundo agotaban la memoria gráfica de
+// los navegadores móviles y dejaban la pantalla en negro.
 // ─────────────────────────────────────────────────────────────────────────────
 class _ArcaneCirclePainter extends CustomPainter {
-  final double orbitAngle;
+  final double orbit;
   final double pulse;
   final double rx;
   final double ry;
   final List<Offset> cardCenters;
   final List<Color> accentColors;
 
-  static double _shapedCoord(double v) {
-    final s = v >= 0 ? 1.0 : -1.0;
-    return s * math.pow(v.abs(), 0.80).toDouble();
-  }
-
   _ArcaneCirclePainter({
-    required this.orbitAngle,
+    required this.orbit,
     required this.pulse,
     required this.rx,
     required this.ry,
@@ -879,145 +889,126 @@ class _ArcaneCirclePainter extends CustomPainter {
     final cx = size.width / 2;
     final cy = size.height / 2;
     final center = Offset(cx, cy);
+    final orbitAngle = orbit * 2 * math.pi;
     final coreR = math.min(rx, ry) * 0.54;
 
-    // 1. Resplandor místico radial de fondo
-    final bgGlow = Paint()
-      ..shader = RadialGradient(
-        colors: [
-          const Color(0xFF8B0000).withValues(alpha: 0.24 + 0.10 * pulse),
-          const Color(0xFFD4AF37).withValues(alpha: 0.06 + 0.04 * pulse),
-          Colors.transparent,
-        ],
-        stops: const [0.0, 0.48, 1.0],
-      ).createShader(
-          Rect.fromCircle(center: center, radius: math.max(rx, ry) * 1.15));
-    canvas.drawCircle(center, math.max(rx, ry) * 1.15, bgGlow);
+    // 1. Bruma suave detrás del sello (anillos concéntricos translúcidos)
+    final mistR = coreR * (1.25 + 0.12 * math.sin(orbitAngle * 2));
+    for (int k = 3; k >= 1; k--) {
+      canvas.drawCircle(
+        center,
+        mistR * (k / 3),
+        Paint()
+          ..color = const Color(0xFF8B0000)
+              .withValues(alpha: 0.06 + 0.03 * pulse),
+      );
+    }
 
-    // 1.1 Bruma ritual de incienso pulsando suavemente detrás del sello central
-    final smokeCenterRadius =
-        coreR * (1.18 + 0.14 * math.sin(orbitAngle * 1.8));
-    final mistShader = RadialGradient(
-      colors: [
-        const Color(0xFF8B0000).withValues(alpha: 0.22 + 0.08 * pulse),
-        const Color(0xFF2A0205).withValues(alpha: 0.12 + 0.05 * pulse),
-        Colors.transparent,
-      ],
-      stops: const [0.0, 0.55, 1.0],
-    ).createShader(Rect.fromCircle(center: center, radius: smokeCenterRadius));
-    canvas.drawCircle(center, smokeCenterRadius, Paint()..shader = mistShader);
-
-    // 2. Anillo orbital elíptico por donde viajan los 4 recuadros
-    final orbitRect = Rect.fromCenter(
-      center: center,
-      width: rx * 2,
-      height: ry * 2,
+    // 2. Anillo orbital por donde giran los recuadros
+    final orbitRect =
+        Rect.fromCenter(center: center, width: rx * 2, height: ry * 2);
+    canvas.drawOval(
+      orbitRect,
+      Paint()
+        ..color =
+            const Color(0xFFB71C1C).withValues(alpha: 0.14 + 0.08 * pulse)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 6.0,
+    );
+    canvas.drawOval(
+      orbitRect,
+      Paint()
+        ..color = AppColors.gold.withValues(alpha: 0.28 + 0.08 * pulse)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.1,
     );
 
-    final orbitGlowPaint = Paint()
-      ..color = const Color(0xFFB71C1C).withValues(alpha: 0.14 + 0.08 * pulse)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 6.0;
-    canvas.drawOval(orbitRect, orbitGlowPaint);
-
-    final orbitLinePaint = Paint()
-      ..color = AppColors.gold.withValues(alpha: 0.28 + 0.08 * pulse)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.1;
-    canvas.drawOval(orbitRect, orbitLinePaint);
-
-    // ─── 2.1 ESTELAS DE HUMO RITUAL EN LA ÓRBITA (Una detrás de la otra) ───
+    // 3. Estelas de humo detrás de cada recuadro (cola de cometa)
     for (int i = 0; i < 4; i++) {
-      final cardAngle = orbitAngle - (math.pi / 2) + (i * math.pi / 2);
+      final a = _MysticServicesCircleState.cardAngle(orbit, i);
       final color = accentColors[i];
-
-      // Volutas de humo etéreo orgánico que se dispersan en cola de cometa
-      const int wispCount = 8;
+      const int wispCount = 9;
       for (int w = 1; w <= wispCount; w++) {
-        final factor = w / wispCount; // 0.125 -> 1.0
-        // Distancia angular hacia atrás (cola del humo)
-        final trailAngle = cardAngle - (factor * 0.72);
+        final f = w / wispCount;
+        // El humo queda atrás del recuadro según el sentido del giro.
+        final ta = a - f * 0.85;
+        final wobble =
+            math.sin(orbitAngle * 3.2 + w * 1.4 + i * 2.0) * (3 + 6 * f);
+        final wx = cx + (rx + wobble) * math.cos(ta);
+        final wy = cy + (ry + wobble) * math.sin(ta) - f * 10;
+        final wc = Offset(wx, wy);
+        final baseR = 10.0 + f * 26.0;
+        final alpha = ((1.0 - f) * (0.20 + 0.10 * pulse)).clamp(0.0, 0.35);
 
-        // Ondulación turbulenta orgánica de aire caliente
-        final wobble = math.sin((orbitAngle * 3.2) + (w * 1.4) + (i * 2.0)) *
-            (2.5 + 4.5 * factor);
-        final wispCos = math.cos(trailAngle);
-        final wispSin = math.sin(trailAngle);
-
-        // Posición elíptica suave con dispersión lateral
-        final wx = cx + (rx + wobble * wispSin) * _shapedCoord(wispCos);
-        final wy = cy + (ry - wobble * wispCos) * _shapedCoord(wispSin);
-        final wispCenter = Offset(wx, wy);
-
-        // Radio que se expande conforme el humo se enfría y dispersa
-        final wispRadius = 9.0 + (factor * 22.0);
-        // Opacidad decreciente hacia la punta de la cola
-        final wispAlpha =
-            ((1.0 - factor) * (0.28 + 0.12 * pulse)).clamp(0.0, 0.42);
-
-        final smokeShader = RadialGradient(
-          colors: [
-            color.withValues(alpha: wispAlpha),
-            const Color(0xFF1E0305).withValues(alpha: wispAlpha * 0.75),
-            Colors.transparent,
-          ],
-          stops: const [0.0, 0.52, 1.0],
-        ).createShader(Rect.fromCircle(center: wispCenter, radius: wispRadius));
-
+        // Voluta: tres capas translúcidas simulan el difuminado del humo.
         canvas.drawCircle(
-          wispCenter,
-          wispRadius,
-          Paint()..shader = smokeShader,
-        );
-
-        // Chispas / brasas incandescentes de incienso que titilan en la estela
-        if (w % 2 == 1) {
-          final emberWobble = math.cos((orbitAngle * 4.5) + (w * 2.3)) * 4.0;
-          final emberPos = Offset(wx + emberWobble, wy - emberWobble * 0.6);
-          final emberAlpha =
-              ((1.0 - factor * 0.75) * (0.50 + 0.35 * pulse)).clamp(0.0, 0.90);
-
-          canvas.drawCircle(
-            emberPos,
-            1.1 + (0.7 * (1.0 - factor)),
+            wc, baseR, Paint()..color = color.withValues(alpha: alpha * 0.35));
+        canvas.drawCircle(wc, baseR * 0.66,
+            Paint()..color = color.withValues(alpha: alpha * 0.55));
+        canvas.drawCircle(
+            wc,
+            baseR * 0.33,
             Paint()
-              ..color = (w == 1 ? Colors.white : AppColors.gold)
-                  .withValues(alpha: emberAlpha),
+              ..color = const Color(0xFF2A0306).withValues(alpha: alpha * 0.6));
+
+        // Brasas que titilan dentro del humo
+        if (w.isOdd) {
+          final ew = math.cos(orbitAngle * 4.5 + w * 2.3) * 4.0;
+          canvas.drawCircle(
+            Offset(wx + ew, wy - ew * 0.6),
+            1.1 + 0.8 * (1.0 - f),
+            Paint()
+              ..color = (w == 1 ? Colors.white : AppColors.gold).withValues(
+                  alpha: ((1.0 - f * 0.75) * (0.5 + 0.35 * pulse))
+                      .clamp(0.0, 0.9)),
           );
         }
       }
 
-      // Estela luminosa arqueada que conecta la tarjeta con la cabeza del humo
-      final trailArcPaint = Paint()
-        ..color = color.withValues(alpha: 0.50 + 0.22 * pulse)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.8
-        ..strokeCap = StrokeCap.round;
-      canvas.drawArc(orbitRect, cardAngle - 0.55, 0.55, false, trailArcPaint);
+      // Arco luminoso que une el recuadro con su estela
+      canvas.drawArc(
+        orbitRect,
+        a - 0.6,
+        0.6,
+        false,
+        Paint()
+          ..color = color.withValues(alpha: 0.45 + 0.22 * pulse)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.6
+          ..strokeCap = StrokeCap.round,
+      );
     }
 
-    // 3. Hilos de energía desde el núcleo hasta cada recuadro
+    // 4. Hilos de energía del núcleo a cada recuadro
     for (int i = 0; i < cardCenters.length; i++) {
-      final pt = cardCenters[i];
-      final linePaint = Paint()
-        ..color = accentColors[i].withValues(alpha: 0.26 + 0.10 * pulse)
-        ..strokeWidth = 1.0;
-      canvas.drawLine(center, pt, linePaint);
+      canvas.drawLine(
+        center,
+        cardCenters[i],
+        Paint()
+          ..color = accentColors[i].withValues(alpha: 0.24 + 0.10 * pulse)
+          ..strokeWidth = 1.0,
+      );
     }
 
-    // 4. Doble anillo exterior del sello central con runas giratorias
+    // 5. Doble anillo del sello central
     final outerSealR = coreR * 1.15;
-    final sealGlow = Paint()
-      ..color = const Color(0xFFEF233C).withValues(alpha: 0.16 + 0.10 * pulse)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 5;
-    canvas.drawCircle(center, outerSealR, sealGlow);
-
-    final goldRingPaint = Paint()
-      ..color = AppColors.gold.withValues(alpha: 0.45 + 0.15 * pulse)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.1;
-    canvas.drawCircle(center, outerSealR, goldRingPaint);
+    canvas.drawCircle(
+      center,
+      outerSealR,
+      Paint()
+        ..color =
+            const Color(0xFFEF233C).withValues(alpha: 0.16 + 0.10 * pulse)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 5,
+    );
+    canvas.drawCircle(
+      center,
+      outerSealR,
+      Paint()
+        ..color = AppColors.gold.withValues(alpha: 0.45 + 0.15 * pulse)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.1,
+    );
     canvas.drawCircle(
       center,
       coreR * 0.88,
@@ -1027,39 +1018,36 @@ class _ArcaneCirclePainter extends CustomPainter {
         ..strokeWidth = 0.9,
     );
 
-    // Sellos geométricos girando en sentido horario (sin TextPainter para 0 fugas de memoria en Web móvil)
+    // Sellos girando
     const int sealCount = 12;
     for (int i = 0; i < sealCount; i++) {
-      final a = (orbitAngle * 0.7) + (i * 2 * math.pi / sealCount);
-      final rxPos = cx + (coreR * 1.01) * math.cos(a);
-      final ryPos = cy + (coreR * 1.01) * math.sin(a);
-      final nodeColor = (i.isEven ? AppColors.gold : const Color(0xFFEF233C))
-          .withValues(alpha: 0.55 + 0.25 * pulse);
-
+      final sa = orbitAngle * 0.7 + i * 2 * math.pi / sealCount;
       canvas.drawCircle(
-        Offset(rxPos, ryPos),
+        Offset(cx + coreR * 1.01 * math.cos(sa),
+            cy + coreR * 1.01 * math.sin(sa)),
         i % 3 == 0 ? 2.4 : 1.5,
-        Paint()..color = nodeColor,
+        Paint()
+          ..color = (i.isEven ? AppColors.gold : const Color(0xFFEF233C))
+              .withValues(alpha: 0.55 + 0.25 * pulse),
       );
     }
 
-    // 5. Pentagrama invertido rotando en sentido antihorario en el núcleo
+    // 6. Pentagrama girando en sentido contrario
     final starR = coreR * 0.82;
     final starPts = List.generate(5, (i) {
-      final a = (-orbitAngle * 1.1) + (math.pi / 2) + (i * 4 * math.pi / 5);
-      return Offset(cx + starR * math.cos(a), cy + starR * math.sin(a));
+      final sa = -orbitAngle * 1.1 + math.pi / 2 + i * 4 * math.pi / 5;
+      return Offset(cx + starR * math.cos(sa), cy + starR * math.sin(sa));
     });
-
     final starPath = Path()..moveTo(starPts[0].dx, starPts[0].dy);
     for (int i = 1; i < 5; i++) {
       starPath.lineTo(starPts[i].dx, starPts[i].dy);
     }
     starPath.close();
-
     canvas.drawPath(
       starPath,
       Paint()
-        ..color = const Color(0xFFB71C1C).withValues(alpha: 0.28 + 0.14 * pulse)
+        ..color =
+            const Color(0xFFB71C1C).withValues(alpha: 0.28 + 0.14 * pulse)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 3.5,
     );
@@ -1071,7 +1059,7 @@ class _ArcaneCirclePainter extends CustomPainter {
         ..strokeWidth = 1.1,
     );
 
-    // 6. Ojo místico pulsante en el centro absoluto del círculo
+    // 7. Ojo místico en el centro
     final eyeW = coreR * 0.38;
     final eyeH = coreR * (0.20 + 0.05 * pulse);
     final eyePath = Path()
@@ -1081,34 +1069,19 @@ class _ArcaneCirclePainter extends CustomPainter {
       ..cubicTo(cx + eyeW * 0.45, cy + eyeH * 1.3, cx - eyeW * 0.45,
           cy + eyeH * 1.3, cx - eyeW, cy)
       ..close();
-
     canvas.drawPath(eyePath, Paint()..color = const Color(0xFF090000));
 
     final irisR = eyeH * 0.78;
+    canvas.drawCircle(center, irisR, Paint()..color = const Color(0xFF4A0000));
     canvas.drawCircle(
-      center,
-      irisR,
-      Paint()
-        ..shader = const RadialGradient(
-          colors: [
-            AppColors.gold,
-            Color(0xFFEF233C),
-            Color(0xFF4A0000),
-          ],
-          stops: [0.0, 0.55, 1.0],
-        ).createShader(Rect.fromCircle(center: center, radius: irisR)),
-    );
-
-    // Pupila vertical reptil/arcana
+        center, irisR * 0.8, Paint()..color = const Color(0xFFEF233C));
+    canvas.drawCircle(center, irisR * 0.35,
+        Paint()..color = AppColors.gold.withValues(alpha: 0.85));
     canvas.drawOval(
       Rect.fromCenter(
-        center: center,
-        width: irisR * 0.36,
-        height: irisR * 1.55,
-      ),
+          center: center, width: irisR * 0.36, height: irisR * 1.55),
       Paint()..color = Colors.black,
     );
-
     canvas.drawPath(
       eyePath,
       Paint()
@@ -1120,7 +1093,7 @@ class _ArcaneCirclePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _ArcaneCirclePainter old) =>
-      old.orbitAngle != orbitAngle || old.pulse != pulse;
+      old.orbit != orbit || old.pulse != pulse;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1158,16 +1131,11 @@ class _CompactServiceCard extends StatelessWidget {
               color: data.accentColor.withValues(alpha: borderOpacity),
               width: 1.15,
             ),
+            // Una sola sombra con desenfoque fijo: más liviana en celulares.
             boxShadow: [
               BoxShadow(
                 color: data.accentColor.withValues(alpha: glowOpacity),
-                blurRadius: 14 + (6 * highlightIntensity),
-                spreadRadius: highlightIntensity * 1.2,
-              ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.75),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+                blurRadius: 12,
               ),
             ],
           ),
@@ -1876,38 +1844,4 @@ class _CartaDelDia extends StatelessWidget {
       },
     );
   }
-}
-
-/// Procedural incense without external assets or expensive blur filters.
-class _IncensePainter extends CustomPainter {
-  final double progress;
-  const _IncensePainter(this.progress);
-  @override
-  void paint(Canvas canvas, Size size) {
-    final t = progress * math.pi * 2;
-    for (var i = 0; i < 9; i++) {
-      final phase = t + i * .74;
-      final center = Offset(
-          size.width * .5 + math.sin(phase) * size.width * .20,
-          size.height * .5 + math.cos(phase + i * .4) * 72);
-      final radius = size.width * (.15 + .025 * math.sin(phase));
-      final color = i.isEven ? const Color(0xFFB8A1D9) : AppColors.gold;
-      canvas.drawCircle(
-          center,
-          radius,
-          Paint()
-            ..shader = RadialGradient(
-              colors: [
-                color.withValues(alpha: .055),
-                color.withValues(alpha: .018),
-                Colors.transparent
-              ],
-              stops: const [0, .45, 1],
-            ).createShader(Rect.fromCircle(center: center, radius: radius)));
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _IncensePainter oldDelegate) =>
-      oldDelegate.progress != progress;
 }
