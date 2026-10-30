@@ -99,6 +99,37 @@
     setTimeout(function () { show('diag activo: ' + navigator.userAgent); document.getElementById('diag').style.display = 'none'; }, 50);
   })();
   </script>
-  <script src="flutter_bootstrap.js" async></script>
+  <!--
+    Carga de Firebase directamente desde la página (antes de arrancar Flutter).
+    En iPhone (Safari/WebKit) la carga automática que hace el plugin de Flutter
+    no dejaba disponible el módulo de autenticación y la app quedaba en negro.
+    Si estas variables ya existen, el plugin de Firebase no intenta cargarlas de nuevo.
+    La versión debe coincidir con la que usa el plugin firebase_core_web.
+  -->
+  <script type="module">
+    const V = '11.9.1';
+    const base = 'https://www.gstatic.com/firebasejs/' + V + '/';
+    const diag = (m) => { try { console.log('DIAG_ERROR ' + m); } catch (_) {} };
+    try {
+      const [core, auth, firestore, storage] = await Promise.all([
+        import(base + 'firebase-app.js'),
+        import(base + 'firebase-auth.js'),
+        import(base + 'firebase-firestore.js'),
+        import(base + 'firebase-storage.js'),
+      ]);
+      window.firebase_core = core;
+      window.firebase_auth = auth;
+      window.firebase_firestore = firestore;
+      window.firebase_storage = storage;
+    } catch (e) {
+      // Si algo falla aquí, el plugin intentará cargar Firebase por su cuenta.
+      delete window.firebase_core;
+      diag('carga Firebase en index: ' + (e && e.message ? e.message : e));
+    }
+    const s = document.createElement('script');
+    s.src = 'flutter_bootstrap.js';
+    s.async = true;
+    document.body.appendChild(s);
+  </script>
 </body>
 </html>
