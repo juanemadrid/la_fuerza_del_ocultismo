@@ -39,11 +39,18 @@ class _LoginScreenState extends State<LoginScreen> {
   void initState() {
     super.initState();
     _checkBiometrics();
-    _authSubscription = FirebaseAuth.instance.authStateChanges().listen((user) {
-      if (user != null && mounted && !_hasNavigated) {
-        _irAlHome();
-      }
-    });
+    // Protegido: si Firebase no arrancó (pasó en iPhone), igual se muestra el login
+    // en vez de dejar la pantalla en negro.
+    try {
+      _authSubscription =
+          FirebaseAuth.instance.authStateChanges().listen((user) {
+        if (user != null && mounted && !_hasNavigated) {
+          _irAlHome();
+        }
+      }, onError: (e) => debugPrint('DIAG_ERROR authStateChanges: $e'));
+    } catch (e) {
+      debugPrint('DIAG_ERROR login authStateChanges: $e');
+    }
   }
 
   Future<void> _checkBiometrics() async {
