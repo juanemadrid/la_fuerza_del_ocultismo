@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -150,7 +151,23 @@ class _SplashScreenState extends State<SplashScreen>
     Widget targetScreen = const LoginScreen();
 
     try {
-      User? currentUser = FirebaseAuth.instance.currentUser;
+      User? currentUser;
+
+      if (kIsWeb) {
+        try {
+          final redirectResult = await FirebaseAuth.instance
+              .getRedirectResult()
+              .timeout(const Duration(milliseconds: 2000));
+          if (redirectResult.user != null) {
+            currentUser = redirectResult.user;
+          }
+        } catch (e) {
+          debugPrint("getRedirectResult en splash: $e");
+        }
+      }
+
+      currentUser ??= FirebaseAuth.instance.currentUser;
+
       if (currentUser == null) {
         try {
           currentUser = await FirebaseAuth.instance

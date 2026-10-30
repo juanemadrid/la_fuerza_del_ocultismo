@@ -28,6 +28,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _loading = false;
   bool _googleLoading = false;
   bool _hasNavigated = false;
+  StreamSubscription<User?>? _authSubscription;
 
   final LocalAuthentication _localAuth = LocalAuthentication();
   bool _biometricsAvailable = false;
@@ -38,6 +39,11 @@ class _LoginScreenState extends State<LoginScreen> {
   void initState() {
     super.initState();
     _checkBiometrics();
+    _authSubscription = FirebaseAuth.instance.authStateChanges().listen((user) {
+      if (user != null && mounted && !_hasNavigated) {
+        _irAlHome();
+      }
+    });
   }
 
   Future<void> _checkBiometrics() async {
@@ -210,6 +216,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
+    _authSubscription?.cancel();
     _usuarioController.dispose();
     _contrasenaController.dispose();
     super.dispose();
@@ -396,16 +403,13 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _iniciarSesionConGoogle() async {
     if (_loading || _googleLoading) return;
     final authService = Provider.of<AuthService>(context, listen: false);
-    // Disparamos signInWithGoogle() sincrónicamente antes de setState para que
-    // el navegador móvil no bloquee window.open() como popup no solicitado.
-    final Future<String?> signInFuture = authService.signInWithGoogle();
     setState(() {
       _loading = true;
       _googleLoading = true;
     });
 
     try {
-      final String? error = await signInFuture;
+      final String? error = await authService.signInWithGoogle();
 
       if (error != null) {
         if (mounted) _showSnackBar(error, isError: true);
@@ -692,25 +696,15 @@ class _LoginScreenState extends State<LoginScreen> {
                               // Botón Google Sign-In
                               SizedBox(
                                 height: 48,
-                                child: Listener(
-                                  onPointerDown: (event) {
-                                    if (!_loading && !_googleLoading) {
-                                      armGooglePopupOnTouch(
-                                        event.position.dx,
-                                        event.position.dy,
-                                        _iniciarSesionConGoogle,
-                                      );
-                                    }
-                                  },
-                                  child: Material(
-                                    color: Colors.white,
+                                child: Material(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: InkWell(
                                     borderRadius: BorderRadius.circular(14),
-                                    child: InkWell(
-                                      borderRadius: BorderRadius.circular(14),
-                                      onTap: (_loading || _googleLoading)
-                                          ? null
-                                          : _iniciarSesionConGoogle,
-                                      child: Row(
+                                    onTap: (_loading || _googleLoading)
+                                        ? null
+                                        : _iniciarSesionConGoogle,
+                                    child: Row(
                                         mainAxisAlignment:
                                             MainAxisAlignment.center,
                                         children: [

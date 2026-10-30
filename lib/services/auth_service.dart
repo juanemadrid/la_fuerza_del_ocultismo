@@ -1,10 +1,10 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart'
+    show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:google_sign_in/google_sign_in.dart';
 import '../models/user_model.dart';
-import '../utils/google_popup_helper.dart';
 import 'database_service.dart';
 
 class AuthService extends ChangeNotifier {
@@ -17,6 +17,20 @@ class AuthService extends ChangeNotifier {
 
   AuthService() {
     _auth.authStateChanges().listen(_onAuthStateChanged);
+    if (kIsWeb) {
+      _checkWebRedirectResult();
+    }
+  }
+
+  Future<void> _checkWebRedirectResult() async {
+    try {
+      final UserCredential redirectResult = await _auth.getRedirectResult();
+      if (redirectResult.user != null) {
+        await _ensureUserModelForGoogleUser(redirectResult.user!);
+      }
+    } catch (e) {
+      debugPrint('Aviso getRedirectResult en AuthService: $e');
+    }
   }
 
   Future<void> _ensureUserModelForGoogleUser(User user) async {
@@ -259,39 +273,32 @@ class AuthService extends ChangeNotifier {
   Future<String?> signInWithGoogle() async {
     try {
       if (kIsWeb) {
-        // 1. Primero intentamos autenticar con Google Identity Services nativo (sin iframes cross-origin ni dependencias de popup-opener)
-        try {
-          final String? token = await getGoogleWebToken();
-          if (token != null && token.isNotEmpty) {
-            final OAuthCredential credential = GoogleAuthProvider.credential(
-              accessToken: token,
-            );
-            final UserCredential result =
-                await _auth.signInWithCredential(credential);
-            final User? user = result.user ?? _auth.currentUser;
-            if (user != null) {
-              await _ensureUserModelForGoogleUser(user);
-              return null;
-            }
-          }
-        } catch (e) {
-          debugPrint('Aviso con Google Identity Services: $e');
-        }
-
-        // 2. Si GIS falló o no estaba disponible, fallback a signInWithPopup
-        openGooglePopupSync();
-
         final GoogleAuthProvider googleProvider = GoogleAuthProvider();
+        googleProvider.addScope('email');
+        googleProvider.addScope('profile');
         googleProvider.setCustomParameters({'prompt': 'select_account'});
 
-        final UserCredential result = await _auth.signInWithPopup(googleProvider);
-        final User? user = result.user ?? _auth.currentUser;
+        final bool isMobileWeb = defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS;
 
-        if (user != null) {
-          await _ensureUserModelForGoogleUser(user);
+        if (isMobileWeb) {
+          // En navegadores móviles (Chrome/Safari móvil), signInWithRedirect es el método
+          // estándar recomendado por Firebase para evitar bloqueos de popups y desvinculación de pestañas.
+          await _auth.signInWithRedirect(googleProvider);
+          return null;
+        } else {
+          // En computadores (Chrome, Edge, Firefox, etc.) signInWithPopup funciona limpiamente
+          // sin recargar la página.
+          final UserCredential result =
+              await _auth.signInWithPopup(googleProvider);
+          final User? user = result.user ?? _auth.currentUser;
+
+          if (user != null) {
+            await _ensureUserModelForGoogleUser(user);
+            return null;
+          }
           return null;
         }
-        return null;
       } else {
         final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
 
@@ -317,14 +324,12 @@ class AuthService extends ChangeNotifier {
         return null;
       }
     } on FirebaseAuthException catch (e) {
-      closePendingGooglePopup();
       if (_auth.currentUser != null) {
         await _ensureUserModelForGoogleUser(_auth.currentUser!);
         return null;
       }
       return _traducirErrorFirebase(e);
     } catch (e) {
-      closePendingGooglePopup();
       if (_auth.currentUser != null) {
         await _ensureUserModelForGoogleUser(_auth.currentUser!);
         return null;

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
@@ -28,6 +29,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _obscureConfirm = true;
   bool _loading = false;
   String? _signoSeleccionado;
+  StreamSubscription<User?>? _authSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _authSubscription = FirebaseAuth.instance.authStateChanges().listen((user) {
+      if (user != null && mounted) {
+        Navigator.of(context).pushReplacement(
+          MysteriousPageRoute(child: const HomeScreen()),
+        );
+      }
+    });
+  }
 
   static const List<Map<String, String>> _signos = [
     {'nombre': 'Aries',       'icono': '♈', 'fechas': 'Mar 21 – Abr 19'},
@@ -46,6 +60,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   void dispose() {
+    _authSubscription?.cancel();
     _nameController.dispose();
     _emailController.dispose();
     _passController.dispose();
@@ -110,11 +125,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _continuarConGoogle() async {
     if (_loading) return;
     final authService = Provider.of<AuthService>(context, listen: false);
-    final Future<String?> signInFuture = authService.signInWithGoogle();
     setState(() => _loading = true);
 
     try {
-      final String? error = await signInFuture;
+      final String? error = await authService.signInWithGoogle();
       if (error != null) {
         if (mounted) _showError(error);
         return;
@@ -446,23 +460,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         SizedBox(
                           width: double.infinity,
                           height: 48,
-                          child: Listener(
-                            onPointerDown: (event) {
-                              if (!_loading) {
-                                armGooglePopupOnTouch(
-                                  event.position.dx,
-                                  event.position.dy,
-                                  _continuarConGoogle,
-                                );
-                              }
-                            },
-                            child: Material(
-                              color: Colors.white,
+                          child: Material(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                            child: InkWell(
                               borderRadius: BorderRadius.circular(14),
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(14),
-                                onTap: _loading ? null : _continuarConGoogle,
-                                child: Row(
+                              onTap: _loading ? null : _continuarConGoogle,
+                              child: Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     Image.network(
