@@ -16,6 +16,7 @@ class AuthService extends ChangeNotifier {
   User? get currentUser => _auth.currentUser;
 
   AuthService() {
+    _auth.setLanguageCode('es');
     _auth.authStateChanges().listen(_onAuthStateChanged);
     if (kIsWeb) {
       _checkWebRedirectResult();
@@ -276,7 +277,10 @@ class AuthService extends ChangeNotifier {
         final GoogleAuthProvider googleProvider = GoogleAuthProvider();
         googleProvider.addScope('email');
         googleProvider.addScope('profile');
-        googleProvider.setCustomParameters({'prompt': 'select_account'});
+        googleProvider.setCustomParameters({
+          'prompt': 'select_account',
+          'hl': 'es',
+        });
 
         final bool isMobileWeb = defaultTargetPlatform == TargetPlatform.android ||
             defaultTargetPlatform == TargetPlatform.iOS;
