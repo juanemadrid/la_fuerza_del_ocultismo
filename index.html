@@ -22,6 +22,50 @@
   </style>
 </head>
 <body>
+  <!-- DIAGNÓSTICO TEMPORAL: muestra errores en pantalla (para iPhone). Quitar cuando se resuelva. -->
+  <div id="diag" style="display:none;position:fixed;left:0;right:0;bottom:0;max-height:45%;overflow:auto;z-index:2147483647;background:rgba(0,0,0,.9);color:#ff6b6b;font:11px/1.35 monospace;padding:8px;white-space:pre-wrap;word-break:break-word;border-top:2px solid #ff6b6b"></div>
+  <script>
+  (function () {
+    var t0 = Date.now();
+    function show(m) {
+      try {
+        var d = document.getElementById('diag');
+        if (!d) return;
+        d.style.display = 'block';
+        d.textContent += '[' + ((Date.now() - t0) / 1000).toFixed(1) + 's] ' + String(m).slice(0, 600) + '\n';
+      } catch (_) {}
+    }
+    window.addEventListener('error', function (e) {
+      show('ERR: ' + (e.message || (e.target && (e.target.src || e.target.href)) || e));
+    }, true);
+    window.addEventListener('unhandledrejection', function (e) {
+      var r = e.reason; show('PROMISE: ' + ((r && (r.message || r.toString())) || r));
+    });
+    var gc = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (type) {
+      if (!this.__diag) {
+        this.__diag = true;
+        this.addEventListener('webglcontextlost', function () { show('WEBGL CONTEXT LOST (' + type + ')'); });
+        this.addEventListener('webglcontextrestored', function () { show('webgl restored'); });
+      }
+      return gc.apply(this, arguments);
+    };
+    var oe = console.error, ol = console.log;
+    console.error = function () {
+      try { show('CONSOLE: ' + Array.prototype.join.call(arguments, ' ')); } catch (_) {}
+      return oe.apply(console, arguments);
+    };
+    console.log = function () {
+      try {
+        var s = Array.prototype.join.call(arguments, ' ');
+        if (s.indexOf('DIAG_ERROR') >= 0 || s.indexOf('splash') >= 0) show(s);
+      } catch (_) {}
+      return ol.apply(console, arguments);
+    };
+    document.addEventListener('visibilitychange', function () { if (document.hidden) show('page hidden'); });
+    setTimeout(function () { show('diag activo: ' + navigator.userAgent); document.getElementById('diag').style.display = 'none'; }, 50);
+  })();
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
