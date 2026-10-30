@@ -6,13 +6,15 @@ import 'database_service.dart';
 class GeminiService {
   // Clave API de respaldo estática. El administrador puede definirla aquí
   // o configurarla en Firestore: Colección 'config', Documento 'app', Campo 'geminiApiKey'.
-  static const String _defaultApiKey = String.fromEnvironment('GEMINI_API_KEY', defaultValue: '');
+  static const String _defaultApiKey =
+      String.fromEnvironment('GEMINI_API_KEY', defaultValue: '');
 
   /// Resuelve la clave de la base de datos o usa la clave estática
   Future<String?> resolverApiKey() async {
     try {
       final config = await DatabaseService().getAppConfig();
-      if (config.containsKey('geminiApiKey') && config['geminiApiKey'].toString().isNotEmpty) {
+      if (config.containsKey('geminiApiKey') &&
+          config['geminiApiKey'].toString().isNotEmpty) {
         return config['geminiApiKey'].toString().trim();
       }
     } catch (_) {}
@@ -47,7 +49,7 @@ class GeminiService {
     String prompt = '';
     if (tipoLectura == 'posible futuro' && cartas.length >= 3) {
       prompt = '''
-Eres un sabio, experimentado y místico Maestro del Ocultismo, del Tarot y de la Astrología, con amplia autoridad espiritual y de años guiando almas.
+Eres un asistente virtual de tarot y astrología que ofrece interpretaciones simbólicas para la reflexión personal.
 $datosConsultante
 Un consultante te ha formulado la siguiente pregunta: "$pregunta".
 El tipo de lectura es "Posible Futuro" (Lectura de 3 cartas):
@@ -56,24 +58,24 @@ El tipo de lectura es "Posible Futuro" (Lectura de 3 cartas):
 3. Carta de Posible Futuro: "${cartas[2].nombre}" (Significado: ${cartas[2].significado}).
 
 Instrucciones de Revelación (CRÍTICAS para mantener tu autoridad espiritual):
-1. Háblale de forma profundamente humanizada, misteriosa y persuasiva. NO uses lenguaje técnico, robótico ni explicaciones neutrales o de IA. Usa modismos y expresiones típicas de un verdadero maestro esotérico (ej. "veo en las vibraciones de tu aura...", "mis guías espirituales me revelan...", "siento que tu canal está inquieto...", "las cartas dibujan un sendero para ti...").
+1. Usa un tono cálido, evocador y respetuoso. Presenta las interpretaciones como posibilidades simbólicas, sin afirmar poderes sobrenaturales ni certezas sobre el futuro.
 2. Dirígete al consultante directamente por su nombre de pila de forma empática e íntima.
-3. Antes de darle la respuesta definitiva, indícale una acción ritual física muy sencilla (como beber un vaso de agua de forma pausada para alinear su canal, cerrar los ojos y respirar hondo tres veces, o concentrarse en los sonidos del entorno) con el fin de purificar su energía y hacer la predicción más exacta. Esto establece tu control espiritual.
-4. Conecta las tres cartas de forma fluida con su pregunta, brindándole guía de vida con seguridad y asertividad.
+3. Puedes invitar a respirar con calma, de forma opcional. Respeta la autonomía del consultante y no atribuyas precisión predictiva a ninguna acción ritual.
+4. Relaciona las cartas con la pregunta como una invitación a reflexionar y considerar opciones, sin prometer resultados.
 ''';
     } else {
       final carta = cartas.first;
       prompt = '''
-Eres un sabio, experimentado y místico Maestro del Ocultismo, del Tarot y de la Astrología, con amplia autoridad espiritual y de años guiando almas.
+Eres un asistente virtual de tarot y astrología que ofrece interpretaciones simbólicas para la reflexión personal.
 $datosConsultante
 Un consultante te ha formulado la siguiente pregunta: "$pregunta" (Tipo de lectura: "$tipoLectura").
 La carta obtenida es: "${carta.nombre}" (Significado: ${carta.significado}).
 
 Instrucciones de Revelación (CRÍTICAS para mantener tu autoridad espiritual):
-1. Háblale de forma profundamente humanizada, misteriosa y persuasiva. NO uses lenguaje técnico, robótico ni explicaciones neutrales o de IA. Usa modismos y expresiones típicas de un verdadero maestro esotérico (ej. "veo en las vibraciones de tu aura...", "mis guías espirituales me revelan...", "siento que tu canal está inquieto...", "las cartas dibujan un sendero para ti...").
+1. Usa un tono cálido, evocador y respetuoso. Presenta las interpretaciones como posibilidades simbólicas, sin afirmar poderes sobrenaturales ni certezas sobre el futuro.
 2. Dirígete al consultante directamente por su nombre de pila de forma empática e íntima.
-3. Antes de darle la respuesta definitiva, indícale una acción ritual física muy sencilla (como beber un vaso de agua de forma pausada para alinear su canal, cerrar los ojos y respirar hondo tres veces, o concentrarse en los sonidos del entorno) con el fin de purificar su energía y hacer la predicción más exacta. Esto establece tu control espiritual.
-4. Conecta la carta de forma fluida con su pregunta, brindándole guía de vida con seguridad y asertividad.
+3. Puedes invitar a respirar con calma, de forma opcional. Respeta la autonomía del consultante y no atribuyas precisión predictiva a ninguna acción ritual.
+4. Relaciona las cartas con la pregunta como una invitación a reflexionar y considerar opciones, sin prometer resultados.
 ''';
     }
 
@@ -81,30 +83,32 @@ Instrucciones de Revelación (CRÍTICAS para mantener tu autoridad espiritual):
       'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$apiKey',
     );
 
-    final response = await http.post(
-      url,
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'contents': [
-          {
-            'parts': [
-              {'text': prompt}
+    final response = await http
+        .post(
+          url,
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'contents': [
+              {
+                'parts': [
+                  {'text': prompt}
+                ]
+              }
             ]
-          }
-        ]
-      }),
-    );
+          }),
+        )
+        .timeout(const Duration(seconds: 35));
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       try {
-        final text = data['candidates'][0]['content']['parts'][0]['text'] as String;
+        final text =
+            data['candidates'][0]['content']['parts'][0]['text'] as String;
         return text.trim();
       } catch (e) {
         throw 'No se pudo descifrar la revelación del oráculo en este momento.';
       }
     } else {
-      print('Gemini API Error: Status=${response.statusCode}, Body=${response.body}');
       throw 'CONEXION_ERROR';
     }
   }
@@ -122,7 +126,7 @@ Instrucciones de Revelación (CRÍTICAS para mantener tu autoridad espiritual):
     }
 
     final systemPrompt = '''
-Eres el sabio, empático y misterioso "Maestro", un consejero espiritual real y experto en astrología, tarot y ocultismo, con amplia autoridad sobre tus consultantes.
+Eres el asistente virtual del Maestro, un personaje de orientación simbólica basado en tarot y astrología.
 Estás conversando en tiempo real con un consultante que busca tu guía espiritual.
 Datos del consultante:
 - Nombre: "$nombreConsultante"
@@ -130,11 +134,11 @@ Datos del consultante:
 - Fecha de nacimiento: "$fechaNacimiento"
 
 Instrucciones de Redacción (CRÍTICAS):
-1. Responde siempre con un tono profundamente humanizado, asertivo, misterioso y persuasivo. Evita respuestas robóticas, neutrales o explicaciones obvias de IA. Usa expresiones de un consejero espiritual con autoridad (ej. "mi querido hermano/a...", "las cartas y tu signo me muestran...", "siento una carga en tu aura...", "debes confiar en las señales...").
+1. Usa un tono cálido, evocador y respetuoso. Presenta las interpretaciones como posibilidades simbólicas, sin afirmar poderes sobrenaturales ni certezas sobre el futuro.
 2. Dirígete al consultante directamente por su nombre de pila frecuentemente de forma natural para crear conexión de validez y cercanía.
-3. Si el consultante te hace una nueva pregunta importante o está muy ansioso, ordénale o sugiérele realizar alguna acción ritual menor para limpiar su canal o asegurar la precisión de la canalización (como tomar un vaso de agua pura de forma pausada, respirar hondo tres veces, encender una vela o frotar sus manos). Esto te permite guiar su psicología y mantener el control de la consulta.
+3. Puedes invitar a respirar con calma, de forma opcional. Respeta la autonomía del consultante y no atribuyas precisión predictiva a ninguna acción ritual.
 4. Mantén tus respuestas cortas y fluidas (máximo 2 párrafos cortos por mensaje) para que se sienta dinámico y real.
-5. Nunca digas que eres una inteligencia artificial o un modelo de lenguaje. Eres el Maestro real y absoluto.
+5. Eres una IA: si te preguntan, explícalo con claridad. Nunca te presentes como una persona real.
 ''';
 
     List<Map<String, dynamic>> contents = [];
@@ -151,29 +155,31 @@ Instrucciones de Redacción (CRÍTICAS):
       'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$apiKey',
     );
 
-    final response = await http.post(
-      url,
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'contents': contents,
-        'systemInstruction': {
-          'parts': [
-            {'text': systemPrompt}
-          ]
-        }
-      }),
-    );
+    final response = await http
+        .post(
+          url,
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'contents': contents,
+            'systemInstruction': {
+              'parts': [
+                {'text': systemPrompt}
+              ]
+            }
+          }),
+        )
+        .timeout(const Duration(seconds: 35));
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       try {
-        final text = data['candidates'][0]['content']['parts'][0]['text'] as String;
+        final text =
+            data['candidates'][0]['content']['parts'][0]['text'] as String;
         return text.trim();
       } catch (e) {
         throw 'No se pudo recibir la revelación del Maestro.';
       }
     } else {
-      print('Gemini Chat API Error: Status=${response.statusCode}, Body=${response.body}');
       throw 'CONEXION_ERROR';
     }
   }

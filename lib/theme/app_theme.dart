@@ -1,39 +1,38 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 // ─────────────────────────────────────────────
 // COLORS
 // ─────────────────────────────────────────────
 class AppColors {
   // Backgrounds
-  static const bgBase     = Color(0xFF080808);
-  static const bgSurface  = Color(0xFF111111);
+  static const bgBase = Color(0xFF080808);
+  static const bgSurface = Color(0xFF111111);
   static const bgElevated = Color(0xFF1C1C1C);
 
   // Primary — Black & Blood Red
-  static const primary      = Color(0xFFC0121C);
+  static const primary = Color(0xFFC0121C);
   static const primaryLight = Color(0xFFEF233C);
-  static const primaryDark  = Color(0xFF7A0000);
+  static const primaryDark = Color(0xFF7A0000);
 
   // Gold accent
-  static const gold      = Color(0xFFD4AF37);
+  static const gold = Color(0xFFD4AF37);
   static const goldLight = Color(0xFFF5D060);
 
   // Crimson (power / energy elements only)
-  static const crimson      = Color(0xFF991B1B);
+  static const crimson = Color(0xFF991B1B);
   static const crimsonLight = Color(0xFFEF4444);
 
   // Teal (limpiezas)
   static const teal = Color(0xFF34D399);
 
   // Text
-  static const textPrimary   = Color(0xFFF5F0F0);
-  static const textSecondary = Color(0xFFEF233C);
-  static const textMuted     = Color(0xFF8A6060);
+  static const textPrimary = Color(0xFFF5F0F0);
+  static const textSecondary = Color(0xFFD9CDCB);
+  static const textMuted = Color(0xFFB9A5A5);
 
   // Borders
-  static const borderSubtle  = Color(0x1FEF233C);
-  static const borderGold    = Color(0x40D4AF37);
+  static const borderSubtle = Color(0x1FEF233C);
+  static const borderGold = Color(0x40D4AF37);
   static const borderPrimary = Color(0x60C0121C);
 }
 
@@ -103,46 +102,53 @@ class AppGradients {
 // TEXT STYLES
 // ─────────────────────────────────────────────
 class AppTextStyles {
-  static TextStyle displayLarge = GoogleFonts.cinzel(
+  static TextStyle displayLarge = const TextStyle(
+    fontFamily: 'Cinzel',
     color: AppColors.textPrimary,
     fontSize: 28,
     fontWeight: FontWeight.w700,
     letterSpacing: 2,
   );
 
-  static TextStyle titleLarge = GoogleFonts.cinzel(
+  static TextStyle titleLarge = const TextStyle(
+    fontFamily: 'Cinzel',
     color: AppColors.textPrimary,
     fontSize: 18,
     fontWeight: FontWeight.w600,
     letterSpacing: 1,
   );
 
-  static TextStyle titleMedium = GoogleFonts.cinzel(
+  static TextStyle titleMedium = const TextStyle(
+    fontFamily: 'Cinzel',
     color: AppColors.textPrimary,
     fontSize: 14,
     fontWeight: FontWeight.w500,
     letterSpacing: 0.5,
   );
 
-  static TextStyle bodyLarge = GoogleFonts.inter(
+  static TextStyle bodyLarge = const TextStyle(
+    fontFamily: 'Inter',
     color: AppColors.textPrimary,
     fontSize: 16,
     height: 1.6,
   );
 
-  static TextStyle bodyMedium = GoogleFonts.inter(
+  static TextStyle bodyMedium = const TextStyle(
+    fontFamily: 'Inter',
     color: AppColors.textSecondary,
     fontSize: 14,
     height: 1.5,
   );
 
-  static TextStyle bodySmall = GoogleFonts.inter(
+  static TextStyle bodySmall = const TextStyle(
+    fontFamily: 'Inter',
     color: AppColors.textMuted,
     fontSize: 12,
     height: 1.4,
   );
 
-  static TextStyle labelGold = GoogleFonts.cinzel(
+  static TextStyle labelGold = const TextStyle(
+    fontFamily: 'Cinzel',
     color: AppColors.gold,
     fontSize: 11,
     fontWeight: FontWeight.w700,
@@ -157,21 +163,22 @@ class AppTheme {
   static ThemeData get dark {
     return ThemeData(
       brightness: Brightness.dark,
+      fontFamily: 'Inter',
       scaffoldBackgroundColor: AppColors.bgBase,
       primaryColor: AppColors.primary,
       colorScheme: const ColorScheme.dark(
         primary: AppColors.primary,
         secondary: AppColors.gold,
         surface: AppColors.bgSurface,
-        background: AppColors.bgBase,
         error: AppColors.primaryLight,
       ),
-      appBarTheme: AppBarTheme(
+      appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.bgBase,
         elevation: 0,
         centerTitle: true,
-        iconTheme: const IconThemeData(color: AppColors.primaryLight),
-        titleTextStyle: GoogleFonts.cinzel(
+        iconTheme: IconThemeData(color: AppColors.primaryLight),
+        titleTextStyle: TextStyle(
+          fontFamily: 'Cinzel',
           color: AppColors.textPrimary,
           fontSize: 16,
           fontWeight: FontWeight.w700,
@@ -180,7 +187,8 @@ class AppTheme {
       ),
       snackBarTheme: SnackBarThemeData(
         backgroundColor: AppColors.bgElevated,
-        contentTextStyle: GoogleFonts.inter(color: AppColors.textPrimary),
+        contentTextStyle:
+            const TextStyle(fontFamily: 'Inter', color: AppColors.textPrimary),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
@@ -203,7 +211,8 @@ class GradientText extends StatelessWidget {
   final TextStyle? style;
   final Gradient gradient;
 
-  const GradientText(this.text, {super.key, this.style, required this.gradient});
+  const GradientText(this.text,
+      {super.key, this.style, required this.gradient});
 
   @override
   Widget build(BuildContext context) {
@@ -247,7 +256,7 @@ class GlowButton extends StatelessWidget {
           boxShadow: enabled
               ? [
                   BoxShadow(
-                    color: glowColor.withOpacity(0.38),
+                    color: glowColor.withValues(alpha: 0.38),
                     blurRadius: 18,
                     offset: const Offset(0, 5),
                   ),
@@ -289,8 +298,8 @@ class OutlineButton extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withOpacity(0.5)),
-          color: color.withOpacity(0.08),
+          border: Border.all(color: color.withValues(alpha: 0.5)),
+          color: color.withValues(alpha: 0.08),
         ),
         child: Material(
           color: Colors.transparent,

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../services/gemini_service.dart';
@@ -14,27 +13,32 @@ class ChatMaestroScreen extends StatefulWidget {
   State<ChatMaestroScreen> createState() => _ChatMaestroScreenState();
 }
 
-class _ChatMaestroScreenState extends State<ChatMaestroScreen> with WidgetsBindingObserver {
+class _ChatMaestroScreenState extends State<ChatMaestroScreen>
+    with WidgetsBindingObserver {
   final List<Map<String, String>> _mensajes = [];
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _cargando = false;
+  bool _audioEnabled = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    SpiritualAudioManager().iniciarAmbiente();
+
     // Mensaje de bienvenida personalizado automático
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       final user = Provider.of<AuthService>(context, listen: false).userModel;
       if (user != null) {
         String saludo = 'Bendiciones, ${user.name}.';
         if (user.zodiacSign.isNotEmpty) {
-          saludo += ' Siento que la vibración de tu signo ${user.zodiacSign} está inquieta en este ciclo.';
+          saludo +=
+              ' Siento que la vibración de tu signo ${user.zodiacSign} está inquieta en este ciclo.';
         }
-        saludo += ' Antes de formular tu pregunta, te pido que te sirvas un vaso de agua pura y bebas un sorbo lentamente para purificar tu canal y alinear tu energía espiritual. Esto hará que la predicción y el consejo sean sumamente precisos.\n\nCuando lo hayas hecho, dime: ¿qué duda o inquietud espiritual traes en tu corazón hoy?';
-        
+        saludo +=
+            ' Soy el asistente virtual del Maestro. Podemos explorar el tarot y la astrología como herramientas de reflexión. Si te apetece, respira con calma antes de comenzar.\n\n¿Qué te gustaría explorar hoy?';
+
         setState(() {
           _mensajes.add({
             'role': 'model',
@@ -56,7 +60,8 @@ class _ChatMaestroScreenState extends State<ChatMaestroScreen> with WidgetsBindi
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
       SpiritualAudioManager().pausarAmbiente();
     } else if (state == AppLifecycleState.resumed) {
       SpiritualAudioManager().reanudarAmbiente();
@@ -77,7 +82,7 @@ class _ChatMaestroScreenState extends State<ChatMaestroScreen> with WidgetsBindi
 
   Future<void> _enviarMensaje() async {
     final texto = _controller.text.trim();
-    if (texto.isEmpty) return;
+    if (texto.isEmpty || _cargando) return;
 
     final user = Provider.of<AuthService>(context, listen: false).userModel;
     if (user == null) return;
@@ -115,7 +120,8 @@ class _ChatMaestroScreenState extends State<ChatMaestroScreen> with WidgetsBindi
         setState(() {
           _mensajes.add({
             'role': 'model',
-            'text': 'Las energías espirituales están bloqueadas en este momento. El Maestro se encuentra en meditación profunda y no puede responder. Por favor, inténtalo más tarde.',
+            'text':
+                'No pudimos obtener una respuesta. Revisa tu conexión e inténtalo de nuevo en un momento.',
           });
           _cargando = false;
         });
@@ -137,10 +143,12 @@ class _ChatMaestroScreenState extends State<ChatMaestroScreen> with WidgetsBindi
           children: [
             Expanded(
               child: _mensajes.isEmpty
-                  ? const Center(child: MysticLoader(text: 'Sintonizando plano astral...'))
+                  ? const Center(
+                      child: MysticLoader(text: 'Sintonizando plano astral...'))
                   : ListView.builder(
                       controller: _scrollController,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 20),
                       itemCount: _mensajes.length + (_cargando ? 1 : 0),
                       itemBuilder: (context, index) {
                         if (index == _mensajes.length) {
@@ -162,9 +170,30 @@ class _ChatMaestroScreenState extends State<ChatMaestroScreen> with WidgetsBindi
       backgroundColor: AppColors.bgBase,
       elevation: 0,
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back_ios_rounded, color: AppColors.gold, size: 20),
+        icon: const Icon(Icons.arrow_back_ios_rounded,
+            color: AppColors.gold, size: 20),
         onPressed: () => Navigator.pop(context),
       ),
+      actions: [
+        IconButton(
+          tooltip: _audioEnabled
+              ? 'Desactivar sonido ambiental'
+              : 'Activar sonido ambiental',
+          icon: Icon(
+              _audioEnabled
+                  ? Icons.volume_up_rounded
+                  : Icons.volume_off_rounded,
+              color: AppColors.gold),
+          onPressed: () {
+            setState(() => _audioEnabled = !_audioEnabled);
+            if (_audioEnabled) {
+              SpiritualAudioManager().iniciarAmbiente();
+            } else {
+              SpiritualAudioManager().detenerAmbiente();
+            }
+          },
+        )
+      ],
       title: Row(
         children: [
           Container(
@@ -172,17 +201,19 @@ class _ChatMaestroScreenState extends State<ChatMaestroScreen> with WidgetsBindi
             decoration: BoxDecoration(
               color: AppColors.bgSurface,
               shape: BoxShape.circle,
-              border: Border.all(color: AppColors.gold.withOpacity(0.5)),
+              border: Border.all(color: AppColors.gold.withValues(alpha: 0.5)),
             ),
-            child: const Icon(Icons.auto_awesome_rounded, color: AppColors.gold, size: 18),
+            child: const Icon(Icons.auto_awesome_rounded,
+                color: AppColors.gold, size: 18),
           ),
           const SizedBox(width: 12),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
+              const Text(
                 'EL MAESTRO',
-                style: GoogleFonts.cinzel(
+                style: TextStyle(
+                  fontFamily: 'Cinzel',
                   color: AppColors.gold,
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
@@ -200,9 +231,10 @@ class _ChatMaestroScreenState extends State<ChatMaestroScreen> with WidgetsBindi
                     ),
                   ),
                   const SizedBox(width: 6),
-                  Text(
-                    'En línea espiritual',
-                    style: GoogleFonts.inter(
+                  const Text(
+                    'Asistente virtual · IA',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
                       color: Colors.white54,
                       fontSize: 9,
                     ),
@@ -217,7 +249,7 @@ class _ChatMaestroScreenState extends State<ChatMaestroScreen> with WidgetsBindi
         preferredSize: const Size.fromHeight(1),
         child: Container(
           height: 1,
-          color: AppColors.borderGold.withOpacity(0.25),
+          color: AppColors.borderGold.withValues(alpha: 0.25),
         ),
       ),
     );
@@ -233,9 +265,10 @@ class _ChatMaestroScreenState extends State<ChatMaestroScreen> with WidgetsBindi
       decoration: BoxDecoration(
         color: AppColors.bgSurface,
         shape: BoxShape.circle,
-        border: Border.all(color: AppColors.gold.withOpacity(0.4)),
+        border: Border.all(color: AppColors.gold.withValues(alpha: 0.4)),
       ),
-      child: const Icon(Icons.auto_awesome_rounded, color: AppColors.gold, size: 12),
+      child: const Icon(Icons.auto_awesome_rounded,
+          color: AppColors.gold, size: 12),
     );
 
     // Avatar del Usuario
@@ -247,13 +280,14 @@ class _ChatMaestroScreenState extends State<ChatMaestroScreen> with WidgetsBindi
           colors: [AppColors.primary, AppColors.bgBase],
         ),
         shape: BoxShape.circle,
-        border: Border.all(color: AppColors.primary.withOpacity(0.4)),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.4)),
       ),
       child: const Icon(Icons.person_rounded, color: Colors.white, size: 12),
     );
 
     return Row(
-      mainAxisAlignment: isModel ? MainAxisAlignment.start : MainAxisAlignment.end,
+      mainAxisAlignment:
+          isModel ? MainAxisAlignment.start : MainAxisAlignment.end,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         if (isModel) modelAvatar,
@@ -272,19 +306,25 @@ class _ChatMaestroScreenState extends State<ChatMaestroScreen> with WidgetsBindi
                 bottomRight: Radius.circular(isModel ? 16 : 4),
               ),
               border: Border.all(
-                color: isModel ? AppColors.gold.withOpacity(0.3) : AppColors.primary.withOpacity(0.4),
+                color: isModel
+                    ? AppColors.gold.withValues(alpha: 0.3)
+                    : AppColors.primary.withValues(alpha: 0.4),
               ),
               gradient: LinearGradient(
                 colors: isModel
                     ? [AppColors.bgSurface, const Color(0xFF140D0D)]
-                    : [AppColors.primary.withOpacity(0.35), AppColors.bgBase],
+                    : [
+                        AppColors.primary.withValues(alpha: 0.35),
+                        AppColors.bgBase
+                      ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
             ),
             child: Text(
               mensaje['text'] ?? '',
-              style: GoogleFonts.inter(
+              style: TextStyle(
+                fontFamily: 'Inter',
                 color: isModel ? AppColors.gold : Colors.white,
                 fontSize: 13.5,
                 height: 1.5,
@@ -304,9 +344,10 @@ class _ChatMaestroScreenState extends State<ChatMaestroScreen> with WidgetsBindi
       decoration: BoxDecoration(
         color: AppColors.bgSurface,
         shape: BoxShape.circle,
-        border: Border.all(color: AppColors.gold.withOpacity(0.4)),
+        border: Border.all(color: AppColors.gold.withValues(alpha: 0.4)),
       ),
-      child: const Icon(Icons.auto_awesome_rounded, color: AppColors.gold, size: 12),
+      child: const Icon(Icons.auto_awesome_rounded,
+          color: AppColors.gold, size: 12),
     );
 
     return Row(
@@ -324,8 +365,8 @@ class _ChatMaestroScreenState extends State<ChatMaestroScreen> with WidgetsBindi
               bottomLeft: Radius.circular(4),
               bottomRight: Radius.circular(16),
             ),
-            border: Border.all(color: AppColors.gold.withOpacity(0.2)),
-            color: AppColors.bgSurface.withOpacity(0.5),
+            border: Border.all(color: AppColors.gold.withValues(alpha: 0.2)),
+            color: AppColors.bgSurface.withValues(alpha: 0.5),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -341,8 +382,9 @@ class _ChatMaestroScreenState extends State<ChatMaestroScreen> with WidgetsBindi
               const SizedBox(width: 10),
               Text(
                 'El Maestro canaliza energías...',
-                style: GoogleFonts.inter(
-                  color: AppColors.gold.withOpacity(0.7),
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  color: AppColors.gold.withValues(alpha: 0.7),
                   fontSize: 11,
                   fontStyle: FontStyle.italic,
                 ),
@@ -361,7 +403,7 @@ class _ChatMaestroScreenState extends State<ChatMaestroScreen> with WidgetsBindi
         color: AppColors.bgBase,
         border: Border(
           top: BorderSide(
-            color: AppColors.borderGold.withOpacity(0.2),
+            color: AppColors.borderGold.withValues(alpha: 0.2),
           ),
         ),
       ),
@@ -370,16 +412,20 @@ class _ChatMaestroScreenState extends State<ChatMaestroScreen> with WidgetsBindi
           Expanded(
             child: TextField(
               controller: _controller,
-              style: GoogleFonts.inter(color: Colors.white, fontSize: 14),
+              style: const TextStyle(
+                  fontFamily: 'Inter', color: Colors.white, fontSize: 14),
               decoration: InputDecoration(
                 hintText: 'Formula tu pregunta al Maestro...',
-                hintStyle: GoogleFonts.inter(color: Colors.white30, fontSize: 13),
+                hintStyle: const TextStyle(
+                    fontFamily: 'Inter', color: Colors.white30, fontSize: 13),
                 filled: true,
                 fillColor: AppColors.bgSurface,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(24),
-                  borderSide: BorderSide(color: AppColors.gold.withOpacity(0.2)),
+                  borderSide:
+                      BorderSide(color: AppColors.gold.withValues(alpha: 0.2)),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(24),
@@ -403,7 +449,8 @@ class _ChatMaestroScreenState extends State<ChatMaestroScreen> with WidgetsBindi
                   end: Alignment.bottomRight,
                 ),
               ),
-              child: const Icon(Icons.send_rounded, color: Colors.white, size: 18),
+              child:
+                  const Icon(Icons.send_rounded, color: Colors.white, size: 18),
             ),
           ),
         ],

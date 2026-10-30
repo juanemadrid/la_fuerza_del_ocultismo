@@ -45,7 +45,10 @@ flutter:
     - assets/images/tarot/
     - assets/audio/
   
-  # fonts:
-  #   - family: OldEnglish
-  #     fonts:
-  #       - asset: assets/fonts/OldEnglish.ttf
+  fonts:
+    - family: Cinzel
+      fonts:
+        - asset: assets/fonts/Cinzel.ttf
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter.ttf
