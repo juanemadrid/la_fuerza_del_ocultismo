@@ -19,7 +19,6 @@ import 'rituales_screen.dart';
 import 'maestro_screen.dart';
 import 'tarot_screen.dart';
 import 'chat_maestro_screen.dart';
-import '../services/audio_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -835,6 +834,11 @@ class _ArcaneCirclePainter extends CustomPainter {
   final List<Offset> cardCenters;
   final List<Color> accentColors;
 
+  static double _shapedCoord(double v) {
+    final s = v >= 0 ? 1.0 : -1.0;
+    return s * math.pow(v.abs(), 0.80).toDouble();
+  }
+
   static const _runes = [
     'ᚠ', 'ᚢ', 'ᚦ', 'ᚨ', 'ᚱ', 'ᚲ', 'ᚷ', 'ᚹ',
     'ᚺ', 'ᚾ', 'ᛁ', 'ᛃ', 'ᛇ', 'ᛈ', 'ᛉ', 'ᛊ'
@@ -868,6 +872,18 @@ class _ArcaneCirclePainter extends CustomPainter {
       ).createShader(Rect.fromCircle(center: center, radius: math.max(rx, ry) * 1.15));
     canvas.drawCircle(center, math.max(rx, ry) * 1.15, bgGlow);
 
+    // 1.1 Bruma ritual de incienso pulsando suavemente detrás del sello central
+    final smokeCenterRadius = coreR * (1.18 + 0.14 * math.sin(orbitAngle * 1.8));
+    final mistShader = RadialGradient(
+      colors: [
+        const Color(0xFF8B0000).withOpacity(0.22 + 0.08 * pulse),
+        const Color(0xFF2A0205).withOpacity(0.12 + 0.05 * pulse),
+        Colors.transparent,
+      ],
+      stops: const [0.0, 0.55, 1.0],
+    ).createShader(Rect.fromCircle(center: center, radius: smokeCenterRadius));
+    canvas.drawCircle(center, smokeCenterRadius, Paint()..shader = mistShader);
+
     // 2. Anillo orbital elíptico por donde viajan los 4 recuadros
     final orbitRect = Rect.fromCenter(
       center: center,
@@ -887,15 +903,74 @@ class _ArcaneCirclePainter extends CustomPainter {
       ..strokeWidth = 1.1;
     canvas.drawOval(orbitRect, orbitLinePaint);
 
-    // Estelas de energía girando sobre el anillo orbital
+    // ─── 2.1 ESTELAS DE HUMO RITUAL EN LA ÓRBITA (Una detrás de la otra) ───
     for (int i = 0; i < 4; i++) {
-      final startA = orbitAngle - (math.pi / 2) + (i * math.pi / 2) - 0.55;
-      final trailPaint = Paint()
-        ..color = accentColors[i].withOpacity(0.55 + 0.20 * pulse)
+      final cardAngle = orbitAngle - (math.pi / 2) + (i * math.pi / 2);
+      final color = accentColors[i];
+
+      // Volutas de humo etéreo orgánico que se dispersan en cola de cometa
+      const int wispCount = 8;
+      for (int w = 1; w <= wispCount; w++) {
+        final factor = w / wispCount; // 0.125 -> 1.0
+        // Distancia angular hacia atrás (cola del humo)
+        final trailAngle = cardAngle - (factor * 0.72);
+
+        // Ondulación turbulenta orgánica de aire caliente
+        final wobble = math.sin((orbitAngle * 3.2) + (w * 1.4) + (i * 2.0)) *
+            (2.5 + 4.5 * factor);
+        final wispCos = math.cos(trailAngle);
+        final wispSin = math.sin(trailAngle);
+
+        // Posición elíptica suave con dispersión lateral
+        final wx = cx + (rx + wobble * wispSin) * _shapedCoord(wispCos);
+        final wy = cy + (ry - wobble * wispCos) * _shapedCoord(wispSin);
+        final wispCenter = Offset(wx, wy);
+
+        // Radio que se expande conforme el humo se enfría y dispersa
+        final wispRadius = 9.0 + (factor * 22.0);
+        // Opacidad decreciente hacia la punta de la cola
+        final wispAlpha =
+            ((1.0 - factor) * (0.28 + 0.12 * pulse)).clamp(0.0, 0.42);
+
+        final smokeShader = RadialGradient(
+          colors: [
+            color.withOpacity(wispAlpha),
+            const Color(0xFF1E0305).withOpacity(wispAlpha * 0.75),
+            Colors.transparent,
+          ],
+          stops: const [0.0, 0.52, 1.0],
+        ).createShader(Rect.fromCircle(center: wispCenter, radius: wispRadius));
+
+        canvas.drawCircle(
+          wispCenter,
+          wispRadius,
+          Paint()..shader = smokeShader,
+        );
+
+        // Chispas / brasas incandescentes de incienso que titilan en la estela
+        if (w % 2 == 1) {
+          final emberWobble = math.cos((orbitAngle * 4.5) + (w * 2.3)) * 4.0;
+          final emberPos = Offset(wx + emberWobble, wy - emberWobble * 0.6);
+          final emberAlpha =
+              ((1.0 - factor * 0.75) * (0.50 + 0.35 * pulse)).clamp(0.0, 0.90);
+
+          canvas.drawCircle(
+            emberPos,
+            1.1 + (0.7 * (1.0 - factor)),
+            Paint()
+              ..color = (w == 1 ? Colors.white : AppColors.gold)
+                  .withOpacity(emberAlpha),
+          );
+        }
+      }
+
+      // Estela luminosa arqueada que conecta la tarjeta con la cabeza del humo
+      final trailArcPaint = Paint()
+        ..color = color.withOpacity(0.50 + 0.22 * pulse)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.4
+        ..strokeWidth = 2.8
         ..strokeCap = StrokeCap.round;
-      canvas.drawArc(orbitRect, startA, 0.50, false, trailPaint);
+      canvas.drawArc(orbitRect, cardAngle - 0.55, 0.55, false, trailArcPaint);
     }
 
     // 3. Hilos de energía desde el núcleo hasta cada recuadro
