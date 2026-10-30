@@ -12,6 +12,9 @@ class OccultLogo extends StatefulWidget {
 class _OccultLogoState extends State<OccultLogo> with TickerProviderStateMixin {
   late AnimationController _blinkCtrl;
   late AnimationController _pulseCtrl;
+  // Mirada: el ojo vigila a los lados, como espiando.
+  late AnimationController _gazeCtrl;
+  late Animation<double> _gaze;
 
   late Animation<double> _eyeOpenAmount;
   late Animation<double> _pulseAmount;
@@ -33,36 +36,69 @@ class _OccultLogoState extends State<OccultLogo> with TickerProviderStateMixin {
     // Blink: periodically blinks (closes and opens)
     _blinkCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1800),
+      duration: const Duration(milliseconds: 4200),
     )..repeat();
 
+    // Parpadeo lento e inquietante: abierto casi todo el tiempo,
+    // un parpadeo rápido y, a veces, uno doble.
     _eyeOpenAmount = TweenSequence<double>([
+      TweenSequenceItem(tween: ConstantTween<double>(1.0), weight: 80.0),
       TweenSequenceItem(
-        tween: ConstantTween<double>(1.0),
-        weight: 70.0, // Stays open for 70% of time (approx 1.26s)
-      ),
+          tween: Tween<double>(begin: 1.0, end: 0.0)
+              .chain(CurveTween(curve: Curves.easeIn)),
+          weight: 3.0),
       TweenSequenceItem(
-        tween: Tween<double>(begin: 1.0, end: 0.0).chain(CurveTween(curve: Curves.easeIn)),
-        weight: 10.0, // Closes quickly (approx 0.18s)
-      ),
+          tween: Tween<double>(begin: 0.0, end: 1.0)
+              .chain(CurveTween(curve: Curves.easeOut)),
+          weight: 5.0),
+      TweenSequenceItem(tween: ConstantTween<double>(1.0), weight: 4.0),
       TweenSequenceItem(
-        tween: Tween<double>(begin: 0.0, end: 1.0).chain(CurveTween(curve: Curves.easeOut)),
-        weight: 20.0, // Opens back up (approx 0.36s)
-      ),
+          tween: Tween<double>(begin: 1.0, end: 0.0)
+              .chain(CurveTween(curve: Curves.easeIn)),
+          weight: 3.0),
+      TweenSequenceItem(
+          tween: Tween<double>(begin: 0.0, end: 1.0)
+              .chain(CurveTween(curve: Curves.easeOut)),
+          weight: 5.0),
     ]).animate(_blinkCtrl);
+
+    // Mirada: centro → izquierda (se queda) → derecha (se queda) → centro.
+    _gazeCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 7000),
+    )..repeat();
+    _gaze = TweenSequence<double>([
+      TweenSequenceItem(tween: ConstantTween<double>(0.0), weight: 18),
+      TweenSequenceItem(
+          tween: Tween<double>(begin: 0.0, end: -1.0)
+              .chain(CurveTween(curve: Curves.easeInOutCubic)),
+          weight: 6),
+      TweenSequenceItem(tween: ConstantTween<double>(-1.0), weight: 20),
+      TweenSequenceItem(
+          tween: Tween<double>(begin: -1.0, end: 1.0)
+              .chain(CurveTween(curve: Curves.easeInOutCubic)),
+          weight: 8),
+      TweenSequenceItem(tween: ConstantTween<double>(1.0), weight: 20),
+      TweenSequenceItem(
+          tween: Tween<double>(begin: 1.0, end: 0.0)
+              .chain(CurveTween(curve: Curves.easeInOutCubic)),
+          weight: 6),
+      TweenSequenceItem(tween: ConstantTween<double>(0.0), weight: 22),
+    ]).animate(_gazeCtrl);
   }
 
   @override
   void dispose() {
     _pulseCtrl.dispose();
     _blinkCtrl.dispose();
+    _gazeCtrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: Listenable.merge([_blinkCtrl, _pulseCtrl]),
+      animation: Listenable.merge([_blinkCtrl, _pulseCtrl, _gazeCtrl]),
       builder: (context, _) {
         return Container(
           width: widget.size,
@@ -84,6 +120,7 @@ class _OccultLogoState extends State<OccultLogo> with TickerProviderStateMixin {
             painter: _OccultLogoPainter(
               eyeOpen: _eyeOpenAmount.value,
               pulse: _pulseAmount.value,
+              gaze: _gaze.value,
             ),
           ),
         );
@@ -95,8 +132,10 @@ class _OccultLogoState extends State<OccultLogo> with TickerProviderStateMixin {
 class _OccultLogoPainter extends CustomPainter {
   final double eyeOpen;
   final double pulse;
+  final double gaze; // -1 mira a la izquierda, 0 al frente, 1 a la derecha
 
-  _OccultLogoPainter({required this.eyeOpen, required this.pulse});
+  _OccultLogoPainter(
+      {required this.eyeOpen, required this.pulse, required this.gaze});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -164,33 +203,28 @@ class _OccultLogoPainter extends CustomPainter {
       // Fondo negro del ojo
       canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), Paint()..color = Colors.black);
 
-      // Iris rojo sangre gradiente
-      final irisR = eh * 0.85;
-       final irisShader = const RadialGradient(
-        colors: [
-          Color(0xFFEF233C),
-          Color(0xFF8B0000),
-          Color(0xFF3D0000),
-          Colors.black,
-        ],
-        stops: [0.0, 0.35, 0.65, 1.0],
-      ).createShader(Rect.fromCircle(center: Offset(cx, cy), radius: irisR));
-      canvas.drawCircle(Offset(cx, cy), irisR, Paint()..shader = irisShader);
+      // Iris rojo sangre en anillos (sin degradado: más liviano en iPhone).
+      // Su tamaño no depende del parpadeo, así el párpado lo tapa al cerrar.
+      final irisR = size.height * 0.17 * 0.85;
+      final ix = cx + gaze * ew * 0.42; // el iris se desplaza al mirar
+      final irisC = Offset(ix, cy);
+      canvas.drawCircle(irisC, irisR, Paint()..color = const Color(0xFF3D0000));
+      canvas.drawCircle(
+          irisC, irisR * 0.78, Paint()..color = const Color(0xFF8B0000));
+      canvas.drawCircle(irisC, irisR * 0.5,
+          Paint()..color = const Color(0xFFEF233C).withValues(alpha: 0.85 + 0.15 * pulse));
 
       // Pupila vertical de demonio/gato
       final pupilW = irisR * (0.16 + 0.06 * pulse);
       final pupilH = irisR * 0.8;
-      final pupilPath = Path();
-      pupilPath.addOval(Rect.fromCenter(
-        center: Offset(cx, cy),
-        width: pupilW * 2,
-        height: pupilH * 2,
-      ));
-      canvas.drawPath(pupilPath, Paint()..color = Colors.black);
+      canvas.drawOval(
+        Rect.fromCenter(center: irisC, width: pupilW * 2, height: pupilH * 2),
+        Paint()..color = Colors.black,
+      );
 
       // Brillos del ojo
       canvas.drawCircle(
-        Offset(cx - irisR * 0.28, cy - irisR * 0.28),
+        Offset(ix - irisR * 0.28, cy - irisR * 0.28),
         irisR * 0.12,
         Paint()..color = Colors.white.withValues(alpha: 0.6 + 0.2 * pulse),
       );
@@ -208,6 +242,8 @@ class _OccultLogoPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _OccultLogoPainter oldDelegate) {
-    return oldDelegate.eyeOpen != eyeOpen || oldDelegate.pulse != pulse;
+    return oldDelegate.eyeOpen != eyeOpen ||
+        oldDelegate.pulse != pulse ||
+        oldDelegate.gaze != gaze;
   }
 }

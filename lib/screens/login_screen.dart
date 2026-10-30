@@ -10,6 +10,7 @@ import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/google_popup_helper.dart';
 import '../widgets/occult_logo.dart';
+import '../widgets/ritual_smoke.dart';
 import '../widgets/mysterious_page_route.dart';
 import 'home_screen.dart';
 import 'register_screen.dart';
@@ -472,6 +473,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
             ),
+            // Humo ritual de incienso moviéndose detrás del formulario
+            const Positioned.fill(child: RitualSmoke()),
             SafeArea(
               child: Center(
                 child: SingleChildScrollView(
@@ -712,8 +715,15 @@ class _LoginScreenState extends State<LoginScreen> {
                               SizedBox(
                                 height: 48,
                                 child: Material(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(14),
+                                  // Oscuro con borde dorado: no rompe el ambiente
+                                  color: const Color(0xFF141416),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                    side: BorderSide(
+                                      color: AppColors.borderGold
+                                          .withOpacity(0.45),
+                                    ),
+                                  ),
                                   child: InkWell(
                                     borderRadius: BorderRadius.circular(14),
                                     onTap: (_loading || _googleLoading)
@@ -740,9 +750,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                               'Conectando con Google...',
                                               style: AppTextStyles.titleMedium
                                                   .copyWith(
-                                                    color: const Color(
-                                                      0xFF3C4043,
-                                                    ),
+                                                    color: Colors.white
+                                                        .withOpacity(0.9),
                                                     fontWeight: FontWeight.w600,
                                                     fontSize: 13,
                                                   ),
@@ -764,9 +773,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                               'Continuar con Google',
                                               style: AppTextStyles.titleMedium
                                                   .copyWith(
-                                                    color: const Color(
-                                                      0xFF3C4043,
-                                                    ),
+                                                    color: Colors.white
+                                                        .withOpacity(0.9),
                                                     fontWeight: FontWeight.w600,
                                                     fontSize: 13,
                                                   ),
