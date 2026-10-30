@@ -62,6 +62,39 @@
       } catch (_) {}
       return ol.apply(console, arguments);
     };
+    // Captura el error REAL de Firebase Auth (el plugin de Flutter lo oculta en iPhone)
+    try {
+      var realAuth;
+      Object.defineProperty(window, 'firebase_auth', {
+        configurable: true,
+        get: function () { return realAuth; },
+        set: function (m) {
+          var w = {};
+          Object.keys(m).forEach(function (k) {
+            var v = m[k];
+            if (typeof v === 'function' && /^[a-z]/.test(k) && !/Persistence|Resolver|ErrorMap/.test(k)) {
+              w[k] = function () {
+                try {
+                  var r = v.apply(this, arguments);
+                  if (r && typeof r.then === 'function') {
+                    r.then(null, function (e) {
+                      show('AUTH ' + k + ' rechazo: ' + (e && e.code ? e.code + ' ' : '') + (e && e.message) + ' | ' + String(e && e.stack || '').slice(0, 300));
+                    });
+                  }
+                  return r;
+                } catch (e) {
+                  show('AUTH ' + k + ' fallo: ' + (e && e.code ? e.code + ' ' : '') + (e && e.message) + ' | ' + String(e && e.stack || '').slice(0, 300));
+                  throw e;
+                }
+              };
+            } else {
+              w[k] = v;
+            }
+          });
+          realAuth = w;
+        }
+      });
+    } catch (e) { show('probe auth no instalado: ' + e); }
     document.addEventListener('visibilitychange', function () { if (document.hidden) show('page hidden'); });
     setTimeout(function () { show('diag activo: ' + navigator.userAgent); document.getElementById('diag').style.display = 'none'; }, 50);
   })();

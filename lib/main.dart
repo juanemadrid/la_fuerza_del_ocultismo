@@ -46,6 +46,7 @@ void main() async {
     }
   } catch (e) {
     logger.e("Firebase initialization failed: $e");
+    debugPrint('DIAG_ERROR Firebase init: $e');
   }
   runApp(const MyApp());
 }
