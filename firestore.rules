@@ -31,12 +31,27 @@ service cloud.firestore {
       // Cada usuario solo lee su propio perfil. Admins leen todos.
       allow read: if isOwner(uid) || isAdmin();
 
-      // Crear perfil: solo el propio usuario (registro)
-      allow create: if isOwner(uid);
+      // Crear perfil (registro): siempre como usuario normal, sin membresía.
+      // Nadie puede registrarse directamente como admin ni como premium.
+      allow create: if isAdmin() || (
+        isOwner(uid) &&
+        request.resource.data.get('role', 'user') == 'user' &&
+        request.resource.data.get('isSubscribed', false) == false &&
+        request.resource.data.get('subscriptionExpiry', null) == null
+      );
 
-      // Actualizar perfil: el usuario puede editar campos básicos
-      // El admin puede editar cualquier campo (roles, suscripciones)
-      allow update: if isOwner(uid) || isAdmin();
+      // El admin puede editar cualquier campo (roles, suscripciones).
+      // El usuario solo edita sus datos: nunca su rol ni la fecha de vencimiento,
+      // y la membresía solo la puede apagar (cuando vence), nunca activarla.
+      allow update: if isAdmin() || (
+        isOwner(uid) &&
+        !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['role', 'subscriptionExpiry']) &&
+        (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isSubscribed']) ||
+          request.resource.data.isSubscribed == false
+        )
+      );
 
       // Solo el admin puede eliminar usuarios
       allow delete: if isAdmin();
@@ -87,8 +102,10 @@ service cloud.firestore {
 
     // ─── CONFIGURACIÓN GENERAL ────────────────────────────────────────────────
     match /config/{docId} {
-      // Config pública (link de WhatsApp, etc.) es de solo lectura para todos
-      allow read: if true;
+      // El link de WhatsApp es público (se usa antes de iniciar sesión).
+      // El resto de la configuración (incluida la clave de IA) solo la leen
+      // usuarios con sesión iniciada; antes la podía leer cualquiera en internet.
+      allow read: if docId == 'whatsapp' || isAuth();
 
       // Solo admins pueden modificar la configuración
       allow write: if isAdmin();

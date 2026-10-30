@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
@@ -47,9 +48,9 @@ class _LoginScreenState extends State<LoginScreen> {
         if (user != null && mounted && !_hasNavigated) {
           _irAlHome();
         }
-      }, onError: (e) => debugPrint('DIAG_ERROR authStateChanges: $e'));
+      }, onError: (e) => debugPrint('Aviso authStateChanges: $e'));
     } catch (e) {
-      debugPrint('DIAG_ERROR login authStateChanges: $e');
+      debugPrint('Aviso login authStateChanges: $e');
     }
   }
 
@@ -276,7 +277,14 @@ class _LoginScreenState extends State<LoginScreen> {
         final prefs = await SharedPreferences.getInstance();
         final biometricsEnabled = prefs.getBool('biometrics_enabled') ?? false;
 
-        if (biometricsEnabled) {
+        if (kIsWeb) {
+          // En la web no hay huella y el navegador guardaría la contraseña
+          // en texto legible: se borra cualquier copia vieja y no se guarda.
+          await prefs.remove('saved_password');
+          await prefs.remove('saved_email');
+          await prefs.setBool('biometrics_enabled', false);
+          _irAlHome();
+        } else if (biometricsEnabled) {
           await prefs.setString('saved_email', usuario);
           await prefs.setString('saved_password', contrasena);
           _irAlHome();
