@@ -1,3 +1,4 @@
+import 'dart:ui' show PlatformDispatcher;
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
@@ -11,10 +12,30 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final logger = Logger();
 
-  // Evita que errores de renderizado muestren la pantalla blanca/gris por defecto en release
+  // DIAGNÓSTICO TEMPORAL: en vez de pintar negro, muestra el error en pantalla
+  // para poder ver qué falla en iPhone. Quitar cuando se resuelva.
   ErrorWidget.builder = (FlutterErrorDetails details) {
-    debugPrint('Flutter ErrorWidget: ${details.exceptionAsString()}');
-    return const ColoredBox(color: Color(0xFF080808));
+    debugPrint('DIAG_ERROR ErrorWidget: ${details.exceptionAsString()}');
+    return ColoredBox(
+      color: const Color(0xFF080808),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(12),
+        child: Text(
+          'Error: ${details.exceptionAsString()}',
+          textDirection: TextDirection.ltr,
+          style: const TextStyle(color: Color(0xFFFF6B6B), fontSize: 12),
+        ),
+      ),
+    );
+  };
+  FlutterError.onError = (FlutterErrorDetails details) {
+    debugPrint('DIAG_ERROR Flutter: ${details.exceptionAsString()}\n'
+        '${details.stack.toString().split('\n').take(6).join('\n')}');
+  };
+  PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
+    debugPrint('DIAG_ERROR Async: $error\n'
+        '${stack.toString().split('\n').take(6).join('\n')}');
+    return true;
   };
 
   try {
