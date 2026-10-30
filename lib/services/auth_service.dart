@@ -259,8 +259,26 @@ class AuthService extends ChangeNotifier {
   Future<String?> signInWithGoogle() async {
     try {
       if (kIsWeb) {
-        // En móvil abre sincrónicamente la pestaña del popup dentro del gesto táctil
-        // antes de los awaits internos de Firebase Auth para que el navegador no lo bloquee.
+        // 1. Primero intentamos autenticar con Google Identity Services nativo (sin iframes cross-origin ni dependencias de popup-opener)
+        try {
+          final String? token = await getGoogleWebToken();
+          if (token != null && token.isNotEmpty) {
+            final OAuthCredential credential = GoogleAuthProvider.credential(
+              accessToken: token,
+            );
+            final UserCredential result =
+                await _auth.signInWithCredential(credential);
+            final User? user = result.user ?? _auth.currentUser;
+            if (user != null) {
+              await _ensureUserModelForGoogleUser(user);
+              return null;
+            }
+          }
+        } catch (e) {
+          debugPrint('Aviso con Google Identity Services: $e');
+        }
+
+        // 2. Si GIS falló o no estaba disponible, fallback a signInWithPopup
         openGooglePopupSync();
 
         final GoogleAuthProvider googleProvider = GoogleAuthProvider();

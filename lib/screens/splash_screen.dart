@@ -156,7 +156,7 @@ class _SplashScreenState extends State<SplashScreen>
           currentUser = await FirebaseAuth.instance
               .authStateChanges()
               .first
-              .timeout(const Duration(milliseconds: 300));
+              .timeout(const Duration(milliseconds: 1500));
         } catch (_) {}
       }
 

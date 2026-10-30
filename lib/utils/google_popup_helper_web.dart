@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
+import 'package:flutter/foundation.dart';
 
 void armGooglePopupOnTouch(double x, double y, [void Function()? onTrigger]) {
   try {
@@ -30,4 +32,23 @@ void closePendingGooglePopup() {
       globalContext.callMethod('__closePendingGooglePopup'.toJS);
     }
   } catch (_) {}
+}
+
+Future<String?> getGoogleWebToken() async {
+  try {
+    if (globalContext.has('__signInWithGoogleNativeWeb')) {
+      final promise = globalContext.callMethod<JSPromise<JSObject?>>(
+        '__signInWithGoogleNativeWeb'.toJS,
+      );
+      final JSObject? result = await promise.toDart;
+      if (result != null && result.has('accessToken')) {
+        final token = result.getProperty<JSString?>('accessToken'.toJS)?.toDart;
+        return token;
+      }
+    }
+  } catch (e) {
+    debugPrint('Aviso getGoogleWebToken: $e');
+    rethrow;
+  }
+  return null;
 }
