@@ -71,13 +71,6 @@ class _TarotScreenState extends State<TarotScreen> {
     _cargarCartas();
   }
 
-  @override
-  void dispose() {
-    _tarotSubscription?.cancel();
-    _preguntaController.dispose();
-    super.dispose();
-  }
-
   void _cargarCartas() {
     // Si ya existen cartas en caché de memoria, mostrarlas instantáneamente con 0 espera
     final cached = DatabaseService().cachedTarotCards;
@@ -825,6 +818,7 @@ class _TarotScreenState extends State<TarotScreen> {
 
   @override
   void dispose() {
+    _tarotSubscription?.cancel();
     _preguntaController.dispose();
     super.dispose();
   }
