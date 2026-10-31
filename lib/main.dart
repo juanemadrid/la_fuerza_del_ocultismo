@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'package:logger/logger.dart';
 import 'firebase_options.dart';
@@ -23,6 +24,13 @@ void main() async {
         options: DefaultFirebaseOptions.currentPlatform,
       );
     }
+    // Optimización: Habilitar caché persistente para minimizar lecturas en Firestore
+    try {
+      FirebaseFirestore.instance.settings = const Settings(
+        persistenceEnabled: true,
+        cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+      );
+    } catch (_) {}
   } catch (e) {
     logger.e("Firebase initialization failed: $e");
   }

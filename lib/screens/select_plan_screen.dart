@@ -22,6 +22,13 @@ class SelectPlanScreen extends StatefulWidget {
 class _SelectPlanScreenState extends State<SelectPlanScreen> {
   PlanModel? _planSeleccionado;
   bool _guardando = false;
+  late final Future<String> _whatsAppFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _whatsAppFuture = DatabaseService().getWhatsAppLink();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -215,7 +222,7 @@ class _SelectPlanScreenState extends State<SelectPlanScreen> {
 
   Widget _buildBotonWhatsApp(BuildContext context) {
     return FutureBuilder<String>(
-      future: DatabaseService().getWhatsAppLink(),
+      future: _whatsAppFuture,
       builder: (context, snapshot) {
         final link = snapshot.data ?? '';
         return SizedBox(

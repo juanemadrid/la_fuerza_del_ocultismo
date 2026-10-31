@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
 import '../models/horoscope_model.dart';
 import '../models/content_file_model.dart';
@@ -8,7 +10,68 @@ import '../models/ritual_model.dart';
 import '../models/plan_model.dart';
 
 class DatabaseService {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  // ─── SINGLETON CON CACHÉ INTELIGENTE ──────────────────────────────────────
+  static final DatabaseService _instance = DatabaseService._internal();
+  factory DatabaseService() => _instance;
+  DatabaseService._internal();
+
+  FirebaseFirestore get _db => FirebaseFirestore.instance;
+
+  // ─── CACHÉ EN MEMORIA Y TIEMPOS DE EXPIRACIÓN ─────────────────────────────
+  String? _cachedWhatsAppLink;
+  DateTime? _whatsAppCacheTime;
+
+  Map<String, dynamic>? _cachedAppConfig;
+  DateTime? _appConfigCacheTime;
+
+  final Map<String, HoroscopeModel> _cachedHoroscopes = {};
+  final Map<String, DateTime> _horoscopeCacheTimes = {};
+
+  List<TarotCardModel>? _cachedTarotCards;
+  DateTime? _tarotCardsCacheTime;
+  Stream<List<TarotCardModel>>? _tarotStream;
+
+  List<LimpiezaModel>? _cachedLimpiezas;
+  DateTime? _limpiezasCacheTime;
+  Stream<List<LimpiezaModel>>? _limpiezasStream;
+
+  List<RitualModel>? _cachedRituales;
+  DateTime? _ritualesCacheTime;
+  Stream<List<RitualModel>>? _ritualesStream;
+
+  List<PlanModel>? _cachedPlanes;
+  DateTime? _planesCacheTime;
+  Stream<List<PlanModel>>? _planesStream;
+
+  // Getters para acceso síncrono rápido a caché
+  String? get cachedWhatsAppLink => _cachedWhatsAppLink;
+  Map<String, dynamic>? get cachedAppConfig => _cachedAppConfig;
+  List<TarotCardModel>? get cachedTarotCards => _cachedTarotCards;
+  List<LimpiezaModel>? get cachedLimpiezas => _cachedLimpiezas;
+  List<RitualModel>? get cachedRituales => _cachedRituales;
+  List<PlanModel>? get cachedPlanes => _cachedPlanes;
+
+  /// Limpia manualmente todas las cachés locales si se requiere forzar recarga completa
+  void clearCache() {
+    _cachedWhatsAppLink = null;
+    _whatsAppCacheTime = null;
+    _cachedAppConfig = null;
+    _appConfigCacheTime = null;
+    _cachedHoroscopes.clear();
+    _horoscopeCacheTimes.clear();
+    _cachedTarotCards = null;
+    _tarotCardsCacheTime = null;
+    _tarotStream = null;
+    _cachedLimpiezas = null;
+    _limpiezasCacheTime = null;
+    _limpiezasStream = null;
+    _cachedRituales = null;
+    _ritualesCacheTime = null;
+    _ritualesStream = null;
+    _cachedPlanes = null;
+    _planesCacheTime = null;
+    _planesStream = null;
+  }
 
   // ─── USER METHODS ──────────────────────────────────────────────────────────
 
@@ -127,28 +190,50 @@ class DatabaseService {
     }
   }
 
-  // ─── HOROSCOPE METHODS ─────────────────────────────────────────────────────
+  // ─── HOROSCOPE METHODS (OPTIMIZADOS CON CACHÉ) ─────────────────────────────
 
   Future<void> updateHoroscope(HoroscopeModel horoscope) async {
     await _db
         .collection('horoscopes')
         .doc(horoscope.sign)
         .set(horoscope.toMap());
+    _cachedHoroscopes[horoscope.sign] = horoscope;
+    _horoscopeCacheTimes[horoscope.sign] = DateTime.now();
   }
 
-  Future<HoroscopeModel?> getHoroscope(String sign) async {
-    var doc = await _db.collection('horoscopes').doc(sign).get();
-    if (doc.exists) {
-      return HoroscopeModel.fromMap(doc.data()!);
+  Future<HoroscopeModel?> getHoroscope(String sign, {bool forceRefresh = false}) async {
+    // Si ya fue consultado en la sesión actual y tiene menos de 4 horas, retornar de memoria
+    if (!forceRefresh &&
+        _cachedHoroscopes.containsKey(sign) &&
+        _horoscopeCacheTimes.containsKey(sign) &&
+        DateTime.now().difference(_horoscopeCacheTimes[sign]!).inHours < 4) {
+      return _cachedHoroscopes[sign];
     }
-    return null;
+
+    try {
+      var doc = await _db.collection('horoscopes').doc(sign).get();
+      if (doc.exists) {
+        final horoscope = HoroscopeModel.fromMap(doc.data()!);
+        _cachedHoroscopes[sign] = horoscope;
+        _horoscopeCacheTimes[sign] = DateTime.now();
+        return horoscope;
+      }
+    } catch (_) {}
+
+    return _cachedHoroscopes[sign];
   }
 
   Stream<List<HoroscopeModel>> streamHoroscopes() {
-    return _db.collection('horoscopes').snapshots().map((snapshot) =>
-        snapshot.docs
-            .map((doc) => HoroscopeModel.fromMap(doc.data()))
-            .toList());
+    return _db.collection('horoscopes').snapshots().map((snapshot) {
+      final list = snapshot.docs
+          .map((doc) => HoroscopeModel.fromMap(doc.data()))
+          .toList();
+      for (var h in list) {
+        _cachedHoroscopes[h.sign] = h;
+        _horoscopeCacheTimes[h.sign] = DateTime.now();
+      }
+      return list;
+    });
   }
 
   // ─── CONTENT/PDF METHODS ───────────────────────────────────────────────────
@@ -172,21 +257,70 @@ class DatabaseService {
     await _db.collection('content').doc(id).delete();
   }
 
-  // ─── CONFIG METHODS ────────────────────────────────────────────────────────
+  // ─── CONFIG METHODS (OPTIMIZADOS CON CACHÉ DE MEMORIA Y LOCAL) ────────────
 
-  Future<String> getWhatsAppLink() async {
-    var doc = await _db.collection('config').doc('whatsapp').get();
-    if (doc.exists) {
-      return doc.data()?['link'] ?? '';
+  /// Obtiene el enlace de WhatsApp con caché local (memoria + SharedPreferences).
+  /// Evita realizar lecturas repetitivas a Firestore en cada renderizado de la UI.
+  Future<String> getWhatsAppLink({bool forceRefresh = false}) async {
+    // 1. Memoria rápida si tiene menos de 2 horas
+    if (!forceRefresh &&
+        _cachedWhatsAppLink != null &&
+        _cachedWhatsAppLink!.isNotEmpty &&
+        _whatsAppCacheTime != null &&
+        DateTime.now().difference(_whatsAppCacheTime!).inHours < 2) {
+      return _cachedWhatsAppLink!;
     }
-    return '';
+
+    // 2. Persistencia en SharedPreferences si aún es válida (< 24 horas)
+    if (!forceRefresh) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final stored = prefs.getString('cached_whatsapp_link');
+        final storedTime = prefs.getInt('cached_whatsapp_link_time');
+        if (stored != null && stored.isNotEmpty && storedTime != null) {
+          final diff = DateTime.now().millisecondsSinceEpoch - storedTime;
+          if (diff < const Duration(hours: 24).inMilliseconds) {
+            _cachedWhatsAppLink = stored;
+            _whatsAppCacheTime = DateTime.fromMillisecondsSinceEpoch(storedTime);
+            return stored;
+          }
+        }
+      } catch (_) {}
+    }
+
+    // 3. Consulta a Firestore (solo si no hay caché o expiró)
+    try {
+      var doc = await _db.collection('config').doc('whatsapp').get();
+      if (doc.exists) {
+        final link = doc.data()?['link']?.toString() ?? '';
+        _cachedWhatsAppLink = link;
+        _whatsAppCacheTime = DateTime.now();
+
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('cached_whatsapp_link', link);
+          await prefs.setInt('cached_whatsapp_link_time', DateTime.now().millisecondsSinceEpoch);
+        } catch (_) {}
+
+        return link;
+      }
+    } catch (_) {}
+
+    return _cachedWhatsAppLink ?? '';
   }
 
   Future<void> updateWhatsAppLink(String link) async {
     await _db.collection('config').doc('whatsapp').set({'link': link});
+    _cachedWhatsAppLink = link;
+    _whatsAppCacheTime = DateTime.now();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('cached_whatsapp_link', link);
+      await prefs.setInt('cached_whatsapp_link_time', DateTime.now().millisecondsSinceEpoch);
+    } catch (_) {}
   }
 
-  /// Marca que el usuario ya us\u00f3 su hor\u00f3scopo gratis este mes.
+  /// Marca que el usuario ya usó su horóscopo gratis este mes.
   /// Guarda el mes actual en formato "YYYY-MM" en el documento del usuario.
   Future<void> markFreeHoroscopeUsed(String uid) async {
     final now = DateTime.now();
@@ -216,111 +350,274 @@ class DatabaseService {
     });
   }
 
-  /// Obtiene la configuración general de la app desde `config/app`.
-  Future<Map<String, dynamic>> getAppConfig() async {
-    var doc = await _db.collection('config').doc('app').get();
-    if (doc.exists) {
-      return doc.data() ?? {};
+  /// Obtiene la configuración general de la app desde `config/app` con caché.
+  Future<Map<String, dynamic>> getAppConfig({bool forceRefresh = false}) async {
+    // 1. Memoria si tiene menos de 2 horas
+    if (!forceRefresh &&
+        _cachedAppConfig != null &&
+        _appConfigCacheTime != null &&
+        DateTime.now().difference(_appConfigCacheTime!).inHours < 2) {
+      return _cachedAppConfig!;
     }
-    return {};
+
+    // 2. Persistencia en SharedPreferences si tiene menos de 24 horas
+    if (!forceRefresh) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final jsonStr = prefs.getString('cached_app_config');
+        final storedTime = prefs.getInt('cached_app_config_time');
+        if (jsonStr != null && jsonStr.isNotEmpty && storedTime != null) {
+          final diff = DateTime.now().millisecondsSinceEpoch - storedTime;
+          if (diff < const Duration(hours: 24).inMilliseconds) {
+            final decoded = json.decode(jsonStr) as Map<String, dynamic>;
+            _cachedAppConfig = decoded;
+            _appConfigCacheTime = DateTime.fromMillisecondsSinceEpoch(storedTime);
+            return decoded;
+          }
+        }
+      } catch (_) {}
+    }
+
+    // 3. Consulta a Firestore
+    try {
+      var doc = await _db.collection('config').doc('app').get();
+      if (doc.exists) {
+        final data = doc.data() ?? {};
+        _cachedAppConfig = data;
+        _appConfigCacheTime = DateTime.now();
+
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('cached_app_config', json.encode(data));
+          await prefs.setInt('cached_app_config_time', DateTime.now().millisecondsSinceEpoch);
+        } catch (_) {}
+
+        return data;
+      }
+    } catch (_) {}
+
+    return _cachedAppConfig ?? {};
   }
 
-  /// Guarda la configuración general de la app en `config/app`.
+  /// Guarda la configuración general de la app en `config/app` y actualiza la caché.
   Future<void> updateAppConfig(Map<String, dynamic> config) async {
     await _db.collection('config').doc('app').set(config, SetOptions(merge: true));
+    _cachedAppConfig = config;
+    _appConfigCacheTime = DateTime.now();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('cached_app_config', json.encode(config));
+      await prefs.setInt('cached_app_config_time', DateTime.now().millisecondsSinceEpoch);
+    } catch (_) {}
   }
 
-  // ─── TAROT METHODS ─────────────────────────────────────────────────────────
+  // ─── TAROT METHODS (COMPARTIDO Y CON CACHÉ) ────────────────────────────────
 
   Stream<List<TarotCardModel>> streamTarotCards() {
-    return _db
+    _tarotStream ??= _db
         .collection('tarot_cards')
         .orderBy('orden')
         .snapshots()
-        .map((snap) => snap.docs
-            .map((doc) => TarotCardModel.fromMap(doc.data(), doc.id))
-            .toList());
+        .map((snap) {
+          final list = snap.docs
+              .map((doc) => TarotCardModel.fromMap(doc.data(), doc.id))
+              .toList();
+          _cachedTarotCards = list;
+          _tarotCardsCacheTime = DateTime.now();
+          return list;
+        })
+        .asBroadcastStream();
+    return _tarotStream!;
+  }
+
+  Future<List<TarotCardModel>> getTarotCards({bool forceRefresh = false}) async {
+    if (!forceRefresh &&
+        _cachedTarotCards != null &&
+        _cachedTarotCards!.isNotEmpty &&
+        _tarotCardsCacheTime != null &&
+        DateTime.now().difference(_tarotCardsCacheTime!).inHours < 2) {
+      return _cachedTarotCards!;
+    }
+    try {
+      final snap = await _db.collection('tarot_cards').orderBy('orden').get();
+      _cachedTarotCards = snap.docs
+          .map((doc) => TarotCardModel.fromMap(doc.data(), doc.id))
+          .toList();
+      _tarotCardsCacheTime = DateTime.now();
+      return _cachedTarotCards!;
+    } catch (_) {}
+    return _cachedTarotCards ?? [];
   }
 
   Future<void> saveTarotCard(TarotCardModel card) async {
     await _db.collection('tarot_cards').doc(card.id).set(card.toMap());
+    _cachedTarotCards = null;
+    _tarotCardsCacheTime = null;
   }
 
   Future<void> deleteTarotCard(String id) async {
     await _db.collection('tarot_cards').doc(id).delete();
+    _cachedTarotCards = null;
+    _tarotCardsCacheTime = null;
   }
 
-  // ─── LIMPIEZAS METHODS ─────────────────────────────────────────────────────
+  // ─── LIMPIEZAS METHODS (COMPARTIDO Y CON CACHÉ) ────────────────────────────
 
   Stream<List<LimpiezaModel>> streamLimpiezas() {
-    return _db
+    _limpiezasStream ??= _db
         .collection('limpiezas')
         .orderBy('orden')
         .snapshots()
-        .map((snap) => snap.docs
-            .map((doc) => LimpiezaModel.fromMap(doc.data(), doc.id))
-            .toList());
+        .map((snap) {
+          final list = snap.docs
+              .map((doc) => LimpiezaModel.fromMap(doc.data(), doc.id))
+              .toList();
+          _cachedLimpiezas = list;
+          _limpiezasCacheTime = DateTime.now();
+          return list;
+        })
+        .asBroadcastStream();
+    return _limpiezasStream!;
+  }
+
+  Future<List<LimpiezaModel>> getLimpiezas({bool forceRefresh = false}) async {
+    if (!forceRefresh &&
+        _cachedLimpiezas != null &&
+        _cachedLimpiezas!.isNotEmpty &&
+        _limpiezasCacheTime != null &&
+        DateTime.now().difference(_limpiezasCacheTime!).inHours < 2) {
+      return _cachedLimpiezas!;
+    }
+    try {
+      final snap = await _db.collection('limpiezas').orderBy('orden').get();
+      _cachedLimpiezas = snap.docs
+          .map((doc) => LimpiezaModel.fromMap(doc.data(), doc.id))
+          .toList();
+      _limpiezasCacheTime = DateTime.now();
+      return _cachedLimpiezas!;
+    } catch (_) {}
+    return _cachedLimpiezas ?? [];
   }
 
   Future<void> saveLimpieza(LimpiezaModel limpieza) async {
     await _db.collection('limpiezas').doc(limpieza.id).set(limpieza.toMap());
+    _cachedLimpiezas = null;
+    _limpiezasCacheTime = null;
   }
 
   Future<void> deleteLimpieza(String id) async {
     await _db.collection('limpiezas').doc(id).delete();
+    _cachedLimpiezas = null;
+    _limpiezasCacheTime = null;
   }
 
-  // ─── RITUALES METHODS ──────────────────────────────────────────────────────
+  // ─── RITUALES METHODS (COMPARTIDO Y CON CACHÉ) ─────────────────────────────
 
   Stream<List<RitualModel>> streamRituales() {
-    return _db
+    _ritualesStream ??= _db
         .collection('rituales')
         .orderBy('orden')
         .snapshots()
-        .map((snap) => snap.docs
-            .map((doc) => RitualModel.fromMap(doc.data(), doc.id))
-            .toList());
+        .map((snap) {
+          final list = snap.docs
+              .map((doc) => RitualModel.fromMap(doc.data(), doc.id))
+              .toList();
+          _cachedRituales = list;
+          _ritualesCacheTime = DateTime.now();
+          return list;
+        })
+        .asBroadcastStream();
+    return _ritualesStream!;
+  }
+
+  Future<List<RitualModel>> getRituales({bool forceRefresh = false}) async {
+    if (!forceRefresh &&
+        _cachedRituales != null &&
+        _cachedRituales!.isNotEmpty &&
+        _ritualesCacheTime != null &&
+        DateTime.now().difference(_ritualesCacheTime!).inHours < 2) {
+      return _cachedRituales!;
+    }
+    try {
+      final snap = await _db.collection('rituales').orderBy('orden').get();
+      _cachedRituales = snap.docs
+          .map((doc) => RitualModel.fromMap(doc.data(), doc.id))
+          .toList();
+      _ritualesCacheTime = DateTime.now();
+      return _cachedRituales!;
+    } catch (_) {}
+    return _cachedRituales ?? [];
   }
 
   Future<void> saveRitual(RitualModel ritual) async {
     await _db.collection('rituales').doc(ritual.id).set(ritual.toMap());
+    _cachedRituales = null;
+    _ritualesCacheTime = null;
   }
 
   Future<void> deleteRitual(String id) async {
     await _db.collection('rituales').doc(id).delete();
+    _cachedRituales = null;
+    _ritualesCacheTime = null;
   }
 
-  // ─── PLANES METHODS ────────────────────────────────────────────────────────
+  // ─── PLANES METHODS (COMPARTIDO Y CON CACHÉ) ───────────────────────────────
 
   Stream<List<PlanModel>> streamPlanes() {
-    return _db
+    _planesStream ??= _db
         .collection('planes')
         .orderBy('orden')
         .snapshots()
-        .map((snap) => snap.docs
-            .map((doc) => PlanModel.fromMap(doc.data(), doc.id))
-            .toList());
+        .map((snap) {
+          final list = snap.docs
+              .map((doc) => PlanModel.fromMap(doc.data(), doc.id))
+              .toList();
+          _cachedPlanes = list;
+          _planesCacheTime = DateTime.now();
+          return list;
+        })
+        .asBroadcastStream();
+    return _planesStream!;
   }
 
-  Future<List<PlanModel>> getPlanes() async {
-    final snap = await _db
-        .collection('planes')
-        .where('activo', isEqualTo: true)
-        .orderBy('orden')
-        .get();
-    return snap.docs.map((doc) => PlanModel.fromMap(doc.data(), doc.id)).toList();
+  Future<List<PlanModel>> getPlanes({bool forceRefresh = false}) async {
+    if (!forceRefresh &&
+        _cachedPlanes != null &&
+        _cachedPlanes!.isNotEmpty &&
+        _planesCacheTime != null &&
+        DateTime.now().difference(_planesCacheTime!).inHours < 1) {
+      return _cachedPlanes!;
+    }
+    try {
+      final snap = await _db
+          .collection('planes')
+          .where('activo', isEqualTo: true)
+          .orderBy('orden')
+          .get();
+      final list = snap.docs.map((doc) => PlanModel.fromMap(doc.data(), doc.id)).toList();
+      _cachedPlanes = list;
+      _planesCacheTime = DateTime.now();
+      return list;
+    } catch (_) {}
+    return _cachedPlanes ?? [];
   }
 
   Future<void> savePlan(PlanModel plan) async {
     await _db.collection('planes').doc(plan.id).set(plan.toMap());
+    _cachedPlanes = null;
+    _planesCacheTime = null;
   }
 
   Future<void> deletePlan(String id) async {
     await _db.collection('planes').doc(id).delete();
+    _cachedPlanes = null;
+    _planesCacheTime = null;
   }
 
   Future<void> updatePlanStatus(String id, bool activo) async {
     await _db.collection('planes').doc(id).update({'activo': activo});
+    _cachedPlanes = null;
+    _planesCacheTime = null;
   }
 
   /// Guarda el plan seleccionado por el usuario (antes de pagar)

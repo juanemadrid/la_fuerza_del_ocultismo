@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -27,6 +28,7 @@ class _TarotScreenState extends State<TarotScreen> {
   List<TarotCardModel> _todasLasCartas = [];
   bool _cargando = true;
   final Set<int> _flippedIndices = {};
+  StreamSubscription<List<TarotCardModel>>? _tarotSubscription;
 
   final List<Map<String, dynamic>> _tiposLectura = [
     {
@@ -69,8 +71,22 @@ class _TarotScreenState extends State<TarotScreen> {
     _cargarCartas();
   }
 
+  @override
+  void dispose() {
+    _tarotSubscription?.cancel();
+    _preguntaController.dispose();
+    super.dispose();
+  }
+
   void _cargarCartas() {
-    DatabaseService().streamTarotCards().listen(
+    // Si ya existen cartas en caché de memoria, mostrarlas instantáneamente con 0 espera
+    final cached = DatabaseService().cachedTarotCards;
+    if (cached != null && cached.isNotEmpty) {
+      _todasLasCartas = cached;
+      _cargando = false;
+    }
+
+    _tarotSubscription = DatabaseService().streamTarotCards().listen(
       (cartas) {
         if (mounted) {
           setState(() {
