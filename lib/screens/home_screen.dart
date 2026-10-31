@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/user_model.dart';
 import '../models/tarot_card_model.dart';
@@ -1443,10 +1444,17 @@ class _DrawerItem extends StatelessWidget {
   }
 }
 
-// ─── Carta del Día ────────────────────────────────────────────────────────────
-class _CartaDelDia extends StatelessWidget {
+// ─── Carta del Día (Con Revelación 3D Mística) ─────────────────────────────
+class _CartaDelDia extends StatefulWidget {
   final Stream<List<TarotCardModel>>? cards;
   const _CartaDelDia({this.cards});
+
+  @override
+  State<_CartaDelDia> createState() => _CartaDelDiaState();
+}
+
+class _CartaDelDiaState extends State<_CartaDelDia>
+    with TickerProviderStateMixin {
   static const _cartas = [
     {
       'nombre': 'El Loco',
@@ -1671,9 +1679,202 @@ class _CartaDelDia extends StatelessWidget {
     },
   ];
 
+  late AnimationController _flipController;
+  late Animation<double> _flipAnimation;
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
+  late AnimationController _fadeController;
+  late Animation<double> _fadeAnimation;
+  bool _isRevealed = false;
+  String _todayKey = '';
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _todayKey = 'carta_revelada_${now.year}_${now.month}_${now.day}';
+
+    _flipController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 750),
+    );
+    _flipAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _flipController, curve: Curves.easeInOutCubic),
+    );
+
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    )..repeat(reverse: true);
+    _pulseAnimation = Tween<double>(begin: 0.35, end: 0.85).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+
+    _fadeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 550),
+    );
+    _fadeAnimation =
+        CurvedAnimation(parent: _fadeController, curve: Curves.easeIn);
+
+    _cargarEstadoHoy();
+  }
+
+  Future<void> _cargarEstadoHoy() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final revelada = prefs.getBool(_todayKey) ?? false;
+      if (revelada && mounted) {
+        setState(() {
+          _isRevealed = true;
+          _flipController.value = 1.0;
+          _fadeController.value = 1.0;
+        });
+      }
+    } catch (_) {}
+  }
+
+  @override
+  void dispose() {
+    _flipController.dispose();
+    _pulseController.dispose();
+    _fadeController.dispose();
+    super.dispose();
+  }
+
+  void _revelarCarta() async {
+    if (!_isRevealed) {
+      setState(() => _isRevealed = true);
+      _flipController.forward();
+      Future.delayed(const Duration(milliseconds: 360), () {
+        if (mounted) _fadeController.forward();
+      });
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool(_todayKey, true);
+      } catch (_) {}
+    }
+  }
+
+  Widget _buildBackSprite() {
+    const double displayWidth = 72.0;
+    const double displayHeight = 140.0;
+
+    return AnimatedBuilder(
+      animation: _pulseAnimation,
+      builder: (context, child) {
+        return Container(
+          width: displayWidth,
+          height: displayHeight,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFF220306),
+                Color(0xFF120103),
+                Color(0xFF080808),
+              ],
+            ),
+            border: Border.all(
+              color: AppColors.gold.withValues(alpha: _pulseAnimation.value),
+              width: 1.6,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primary
+                    .withValues(alpha: _pulseAnimation.value * 0.75),
+                blurRadius: 16,
+                spreadRadius: 1,
+              ),
+            ],
+          ),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Positioned.fill(
+                child: Padding(
+                  padding: const EdgeInsets.all(4.5),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(7),
+                      border: Border.all(
+                        color: AppColors.gold.withValues(alpha: 0.3),
+                        width: 0.9,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                  top: 6,
+                  left: 6,
+                  child: Icon(Icons.star_rounded,
+                      size: 7, color: AppColors.gold.withValues(alpha: 0.6))),
+              Positioned(
+                  top: 6,
+                  right: 6,
+                  child: Icon(Icons.star_rounded,
+                      size: 7, color: AppColors.gold.withValues(alpha: 0.6))),
+              Positioned(
+                  bottom: 6,
+                  left: 6,
+                  child: Icon(Icons.star_rounded,
+                      size: 7, color: AppColors.gold.withValues(alpha: 0.6))),
+              Positioned(
+                  bottom: 6,
+                  right: 6,
+                  child: Icon(Icons.star_rounded,
+                      size: 7, color: AppColors.gold.withValues(alpha: 0.6))),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: RadialGradient(
+                        colors: [
+                          AppColors.gold.withValues(alpha: 0.28),
+                          Colors.transparent,
+                        ],
+                      ),
+                      border: Border.all(
+                        color: AppColors.gold.withValues(alpha: 0.6),
+                        width: 1.2,
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.auto_awesome_rounded,
+                      size: 17,
+                      color: AppColors.goldLight,
+                    ),
+                  ),
+                  const SizedBox(height: 7),
+                  Text(
+                    'ORÁCULO',
+                    style: TextStyle(
+                      fontFamily: 'Cinzel',
+                      color: AppColors.gold.withValues(alpha: 0.9),
+                      fontSize: 7.5,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.3,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildCardSprite(int orden, String? imageUrl) {
-    const double displayWidth = 68.0;
-    const double displayHeight = 132.0;
+    const double displayWidth = 72.0;
+    const double displayHeight = 140.0;
 
     return Container(
       width: displayWidth,
@@ -1681,12 +1882,14 @@ class _CartaDelDia extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-            color: AppColors.borderGold.withValues(alpha: 0.5), width: 1.5),
+          color: AppColors.borderGold,
+          width: 1.6,
+        ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFD4A017).withValues(alpha: 0.2),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: const Color(0xFFD4A017).withValues(alpha: 0.35),
+            blurRadius: 14,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
@@ -1715,10 +1918,34 @@ class _CartaDelDia extends StatelessWidget {
     );
   }
 
+  Widget _buildAnimatedCard(int orden, String? imageUrl) {
+    return AnimatedBuilder(
+      animation: _flipAnimation,
+      builder: (context, child) {
+        final angle = _flipAnimation.value * math.pi;
+        final isFront = angle >= math.pi / 2;
+
+        return Transform(
+          transform: Matrix4.identity()
+            ..setEntry(3, 2, 0.0014)
+            ..rotateY(angle),
+          alignment: Alignment.center,
+          child: isFront
+              ? Transform(
+                  transform: Matrix4.identity()..rotateY(math.pi),
+                  alignment: Alignment.center,
+                  child: _buildCardSprite(orden, imageUrl),
+                )
+              : _buildBackSprite(),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<TarotCardModel>>(
-      stream: cards ?? DatabaseService().streamTarotCards(),
+      stream: widget.cards ?? DatabaseService().streamTarotCards(),
       builder: (context, snapshot) {
         final dayOfYear = DateTime.now()
             .difference(DateTime(DateTime.now().year, 1, 1))
@@ -1746,14 +1973,18 @@ class _CartaDelDia extends StatelessWidget {
 
         return GestureDetector(
           onTap: () {
-            CardDetailDialog.show(
-              context,
-              nombre: name,
-              significado: message,
-              orden: orden,
-              imageUrl: imageUrl,
-              subtitle: 'CARTA DEL DÍA',
-            );
+            if (!_isRevealed) {
+              _revelarCarta();
+            } else {
+              CardDetailDialog.show(
+                context,
+                nombre: name,
+                significado: message,
+                orden: orden,
+                imageUrl: imageUrl,
+                subtitle: 'CARTA DEL DÍA REVELADA',
+              );
+            }
           },
           child: Container(
             margin: const EdgeInsets.fromLTRB(16, 0, 16, 20),
@@ -1764,16 +1995,20 @@ class _CartaDelDia extends StatelessWidget {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  const Color(0xFF1A0000).withValues(alpha: 0.92),
-                  const Color(0xFF080808).withValues(alpha: 0.96),
+                  const Color(0xFF1E0204).withValues(alpha: 0.94),
+                  const Color(0xFF080808).withValues(alpha: 0.98),
                 ],
               ),
               border: Border.all(
-                  color: AppColors.gold.withValues(alpha: 0.45), width: 1.5),
+                color: _isRevealed
+                    ? AppColors.gold.withValues(alpha: 0.55)
+                    : AppColors.gold.withValues(alpha: 0.35),
+                width: 1.5,
+              ),
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.primary.withValues(alpha: 0.25),
-                  blurRadius: 24,
+                  color: AppColors.primary.withValues(alpha: 0.28),
+                  blurRadius: 26,
                   offset: const Offset(0, 6),
                 ),
               ],
@@ -1781,61 +2016,149 @@ class _CartaDelDia extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildCardSprite(orden, imageUrl),
+                _buildAnimatedCard(orden, imageUrl),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Row(
-                        children: [
-                          Icon(Icons.auto_awesome_rounded,
-                              color: Color(0xFFD4A017), size: 14),
-                          SizedBox(width: 6),
-                          Expanded(
-                              child: Text(
-                            'CARTA DEL DÍA',
-                            style: TextStyle(
-                              fontFamily: 'Cinzel',
-                              color: Color(0xFFD4A017),
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 2,
+                  child: _isRevealed
+                      ? FadeTransition(
+                          opacity: _fadeAnimation,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Row(
+                                children: [
+                                  Icon(Icons.stars_rounded,
+                                      color: Color(0xFFD4A017), size: 14),
+                                  SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      'ARCANO REVELADO',
+                                      style: TextStyle(
+                                        fontFamily: 'Cinzel',
+                                        color: Color(0xFFD4A017),
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 2,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                name,
+                                style: const TextStyle(
+                                  fontFamily: 'Cinzel',
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                message,
+                                maxLines: 3,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontFamily: 'Inter',
+                                  color: Colors.white70,
+                                  fontSize: 12.5,
+                                  height: 1.6,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              const Text(
+                                'Ver revelación completa →',
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  color: AppColors.goldLight,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Row(
+                              children: [
+                                Icon(Icons.auto_awesome_rounded,
+                                    color: Color(0xFFD4A017), size: 14),
+                                SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    'ORÁCULO DEL DÍA',
+                                    style: TextStyle(
+                                      fontFamily: 'Cinzel',
+                                      color: Color(0xFFD4A017),
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 2,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                          )),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        name,
-                        style: const TextStyle(
-                          fontFamily: 'Cinzel',
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
+                            const SizedBox(height: 6),
+                            const Text(
+                              'Tu Carta de Hoy',
+                              style: TextStyle(
+                                fontFamily: 'Cinzel',
+                                color: Colors.white,
+                                fontSize: 17,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            const Text(
+                              'El velo místico aguarda. Toca para voltear tu arcano y recibir la profecía de hoy.',
+                              style: TextStyle(
+                                fontFamily: 'Inter',
+                                color: Colors.white70,
+                                fontSize: 12,
+                                height: 1.5,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8),
+                                gradient: const LinearGradient(
+                                  colors: [
+                                    Color(0xFF8B0000),
+                                    Color(0xFFB71C1C)
+                                  ],
+                                ),
+                                border: Border.all(
+                                  color: AppColors.gold.withValues(alpha: 0.6),
+                                  width: 1,
+                                ),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.touch_app_rounded,
+                                      size: 13, color: AppColors.goldLight),
+                                  SizedBox(width: 5),
+                                  Text(
+                                    'TOCAR PARA REVELAR',
+                                    style: TextStyle(
+                                      fontFamily: 'Cinzel',
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 1,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        message,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontFamily: 'Inter',
-                          color: Colors.white70,
-                          fontSize: 12.5,
-                          height: 1.6,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      const Text('Ver interpretación →',
-                          style: TextStyle(
-                              fontFamily: 'Inter',
-                              color: AppColors.goldLight,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600)),
-                    ],
-                  ),
                 ),
               ],
             ),
