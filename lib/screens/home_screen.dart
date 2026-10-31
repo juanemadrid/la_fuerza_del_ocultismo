@@ -1687,6 +1687,12 @@ class _CartaDelDiaState extends State<_CartaDelDia>
   late Animation<double> _fadeAnimation;
   bool _isRevealed = false;
   String _todayKey = '';
+  late AnimationController _smokeController;
+  late AnimationController _flashController;
+  late AnimationController _ambientController;
+  late List<_SmokeParticle> _smokeParticles;
+  late List<_EmberParticle> _emberParticles;
+  bool _isSmokeActive = false;
 
   @override
   void initState() {
@@ -1694,9 +1700,21 @@ class _CartaDelDiaState extends State<_CartaDelDia>
     final now = DateTime.now();
     _todayKey = 'carta_revelada_${now.year}_${now.month}_${now.day}';
 
+    _initParticles();
+
+    _smokeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2300),
+    );
+
+    _flashController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+
     _flipController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 750),
+      duration: const Duration(milliseconds: 700),
     );
     _flipAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _flipController, curve: Curves.easeInOutCubic),
@@ -1710,14 +1728,73 @@ class _CartaDelDiaState extends State<_CartaDelDia>
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
+    _ambientController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 4),
+    )..repeat();
+
     _fadeController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 550),
+      duration: const Duration(milliseconds: 800),
     );
-    _fadeAnimation =
-        CurvedAnimation(parent: _fadeController, curve: Curves.easeIn);
+    _fadeAnimation = CurvedAnimation(
+      parent: _fadeController,
+      curve: Curves.easeOutCubic,
+    );
 
     _cargarEstadoHoy();
+  }
+
+  void _initParticles() {
+    final rng = math.Random(1337);
+
+    // 42 bocanadas de humo místico volumétrico (carmesí, violeta, carbón y oro)
+    const smokeColors = [
+      Color(0xFF8B0000), // Rojo sangre ritual
+      Color(0xFF4A0E4E), // Violeta oculto profundo
+      Color(0xFF1B0726), // Humo negro incienso
+      Color(0xFF5E1224), // Borgoña oscuro
+      Color(0xFF2C1033), // Bruma mística
+      Color(0xFFD4AF37), // Humo dorado alquímico
+    ];
+
+    _smokeParticles = List.generate(42, (i) {
+      final angle = (i / 42.0) * math.pi * 2 + (rng.nextDouble() - 0.5) * 0.4;
+      final speed = 42.0 + rng.nextDouble() * 75.0;
+      final baseRadius = 14.0 + rng.nextDouble() * 20.0;
+      final delay = rng.nextDouble() * 0.22;
+      final color = smokeColors[i % smokeColors.length];
+      final verticalDrift =
+          35.0 + rng.nextDouble() * 45.0; // el humo siempre asciende
+      final expansion = 2.2 + rng.nextDouble() * 1.5;
+      final swirl = (rng.nextDouble() - 0.5) * 1.8;
+
+      return _SmokeParticle(
+        angle: angle,
+        speed: speed,
+        baseRadius: baseRadius,
+        delay: delay,
+        color: color,
+        verticalDrift: verticalDrift,
+        expansion: expansion,
+        swirl: swirl,
+      );
+    });
+
+    // 26 chispas y brasas ardientes que flotan en espiral
+    _emberParticles = List.generate(26, (i) {
+      return _EmberParticle(
+        x: (rng.nextDouble() - 0.5) * 0.8,
+        y: 0.1 + rng.nextDouble() * 0.6,
+        speed: 0.6 + rng.nextDouble() * 0.9,
+        size: 1.5 + rng.nextDouble() * 2.5,
+        swaySpeed: 1.0 + rng.nextDouble() * 2.0,
+        swayAmp: 10.0 + rng.nextDouble() * 18.0,
+        color: i % 3 == 0
+            ? const Color(0xFFFFD700)
+            : (i % 2 == 0 ? const Color(0xFFFF6B6B) : const Color(0xFFFFE082)),
+      );
+    });
   }
 
   Future<void> _cargarEstadoHoy() async {
@@ -1736,30 +1813,66 @@ class _CartaDelDiaState extends State<_CartaDelDia>
 
   @override
   void dispose() {
+    _smokeController.dispose();
+    _flashController.dispose();
     _flipController.dispose();
     _pulseController.dispose();
+    _ambientController.dispose();
     _fadeController.dispose();
     super.dispose();
   }
 
   void _revelarCarta() async {
-    if (!_isRevealed) {
-      setState(() => _isRevealed = true);
-      _flipController.forward();
-      Future.delayed(const Duration(milliseconds: 360), () {
-        if (mounted) _fadeController.forward();
-      });
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setBool(_todayKey, true);
-      } catch (_) {}
-    }
+    if (_isSmokeActive) return;
+
+    setState(() {
+      _isSmokeActive = true;
+    });
+
+    _smokeController.forward(from: 0.0);
+
+    // En el punto cumbre de la nube de humo (650ms), volteamos la carta cubierta por la niebla
+    Future.delayed(const Duration(milliseconds: 650), () {
+      if (mounted) {
+        _flipController.forward(from: 0.0);
+        _flashController.forward(from: 0.0);
+      }
+    });
+
+    // A medida que la niebla se disipa, aparece el texto profético
+    Future.delayed(const Duration(milliseconds: 1100), () {
+      if (mounted) {
+        setState(() => _isRevealed = true);
+        _fadeController.forward(from: 0.0);
+      }
+    });
+
+    // Fin de la erupción de humo
+    Future.delayed(const Duration(milliseconds: 2350), () {
+      if (mounted) {
+        setState(() => _isSmokeActive = false);
+      }
+    });
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_todayKey, true);
+    } catch (_) {}
   }
 
-  Widget _buildBackSprite() {
-    const double displayWidth = 72.0;
-    const double displayHeight = 140.0;
+  void _repetirInvocacion() {
+    if (_isSmokeActive) return;
+    setState(() {
+      _isRevealed = false;
+      _flipController.reset();
+      _fadeController.reset();
+    });
+    Future.delayed(const Duration(milliseconds: 60), () {
+      if (mounted) _revelarCarta();
+    });
+  }
 
+  Widget _buildBackSprite(double displayWidth, double displayHeight) {
     return AnimatedBuilder(
       animation: _pulseAnimation,
       builder: (context, child) {
@@ -1767,25 +1880,25 @@ class _CartaDelDiaState extends State<_CartaDelDia>
           width: displayWidth,
           height: displayHeight,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(12),
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Color(0xFF220306),
-                Color(0xFF120103),
-                Color(0xFF080808),
+                Color(0xFF280408),
+                Color(0xFF140204),
+                Color(0xFF09080A),
               ],
             ),
             border: Border.all(
               color: AppColors.gold.withValues(alpha: _pulseAnimation.value),
-              width: 1.6,
+              width: 1.8,
             ),
             boxShadow: [
               BoxShadow(
                 color: AppColors.primary
                     .withValues(alpha: _pulseAnimation.value * 0.75),
-                blurRadius: 16,
+                blurRadius: 18,
                 spreadRadius: 1,
               ),
             ],
@@ -1795,72 +1908,72 @@ class _CartaDelDiaState extends State<_CartaDelDia>
             children: [
               Positioned.fill(
                 child: Padding(
-                  padding: const EdgeInsets.all(4.5),
+                  padding: const EdgeInsets.all(5.0),
                   child: Container(
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(7),
+                      borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: AppColors.gold.withValues(alpha: 0.3),
-                        width: 0.9,
+                        color: AppColors.gold.withValues(alpha: 0.35),
+                        width: 1.0,
                       ),
                     ),
                   ),
                 ),
               ),
               Positioned(
-                  top: 6,
-                  left: 6,
+                  top: 7,
+                  left: 7,
                   child: Icon(Icons.star_rounded,
-                      size: 7, color: AppColors.gold.withValues(alpha: 0.6))),
+                      size: 8, color: AppColors.gold.withValues(alpha: 0.7))),
               Positioned(
-                  top: 6,
-                  right: 6,
+                  top: 7,
+                  right: 7,
                   child: Icon(Icons.star_rounded,
-                      size: 7, color: AppColors.gold.withValues(alpha: 0.6))),
+                      size: 8, color: AppColors.gold.withValues(alpha: 0.7))),
               Positioned(
-                  bottom: 6,
-                  left: 6,
+                  bottom: 7,
+                  left: 7,
                   child: Icon(Icons.star_rounded,
-                      size: 7, color: AppColors.gold.withValues(alpha: 0.6))),
+                      size: 8, color: AppColors.gold.withValues(alpha: 0.7))),
               Positioned(
-                  bottom: 6,
-                  right: 6,
+                  bottom: 7,
+                  right: 7,
                   child: Icon(Icons.star_rounded,
-                      size: 7, color: AppColors.gold.withValues(alpha: 0.6))),
+                      size: 8, color: AppColors.gold.withValues(alpha: 0.7))),
               Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Container(
-                    width: 34,
-                    height: 34,
+                    width: 38,
+                    height: 38,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: RadialGradient(
                         colors: [
-                          AppColors.gold.withValues(alpha: 0.28),
+                          AppColors.gold.withValues(alpha: 0.32),
                           Colors.transparent,
                         ],
                       ),
                       border: Border.all(
-                        color: AppColors.gold.withValues(alpha: 0.6),
-                        width: 1.2,
+                        color: AppColors.gold.withValues(alpha: 0.7),
+                        width: 1.3,
                       ),
                     ),
                     child: const Icon(
                       Icons.auto_awesome_rounded,
-                      size: 17,
+                      size: 19,
                       color: AppColors.goldLight,
                     ),
                   ),
-                  const SizedBox(height: 7),
+                  const SizedBox(height: 8),
                   Text(
                     'ORÁCULO',
                     style: TextStyle(
                       fontFamily: 'Cinzel',
-                      color: AppColors.gold.withValues(alpha: 0.9),
-                      fontSize: 7.5,
+                      color: AppColors.gold.withValues(alpha: 0.95),
+                      fontSize: 8.5,
                       fontWeight: FontWeight.w700,
-                      letterSpacing: 1.3,
+                      letterSpacing: 1.5,
                     ),
                   ),
                 ],
@@ -1872,29 +1985,27 @@ class _CartaDelDiaState extends State<_CartaDelDia>
     );
   }
 
-  Widget _buildCardSprite(int orden, String? imageUrl) {
-    const double displayWidth = 72.0;
-    const double displayHeight = 140.0;
-
+  Widget _buildCardSprite(
+      int orden, String? imageUrl, double displayWidth, double displayHeight) {
     return Container(
       width: displayWidth,
       height: displayHeight,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: AppColors.borderGold,
-          width: 1.6,
+          width: 1.8,
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFD4A017).withValues(alpha: 0.35),
-            blurRadius: 14,
-            offset: const Offset(0, 3),
+            color: const Color(0xFFD4A017).withValues(alpha: 0.45),
+            blurRadius: 18,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         child: imageUrl != null && imageUrl.isNotEmpty
             ? Image.network(
                 imageUrl,
@@ -1918,27 +2029,109 @@ class _CartaDelDiaState extends State<_CartaDelDia>
     );
   }
 
-  Widget _buildAnimatedCard(int orden, String? imageUrl) {
-    return AnimatedBuilder(
-      animation: _flipAnimation,
-      builder: (context, child) {
-        final angle = _flipAnimation.value * math.pi;
-        final isFront = angle >= math.pi / 2;
+  Widget _buildMysticCardStack(int orden, String? imageUrl) {
+    const double displayWidth = 84.0;
+    const double displayHeight = 152.0;
 
-        return Transform(
-          transform: Matrix4.identity()
-            ..setEntry(3, 2, 0.0014)
-            ..rotateY(angle),
-          alignment: Alignment.center,
-          child: isFront
-              ? Transform(
-                  transform: Matrix4.identity()..rotateY(math.pi),
-                  alignment: Alignment.center,
-                  child: _buildCardSprite(orden, imageUrl),
-                )
-              : _buildBackSprite(),
-        );
-      },
+    return SizedBox(
+      width: displayWidth,
+      height: displayHeight,
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.center,
+        children: [
+          // 1. Humo ambiental místico cuando está en reposo (sin revelar)
+          if (!_isRevealed && !_isSmokeActive)
+            Positioned(
+              left: -20,
+              right: -20,
+              top: -25,
+              bottom: -15,
+              child: IgnorePointer(
+                child: RepaintBoundary(
+                  child: AnimatedBuilder(
+                    animation: _ambientController,
+                    builder: (context, _) => CustomPaint(
+                      painter:
+                          _AmbientCardSmokePainter(_ambientController.value),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+          // 2. Carta con transformación 3D, vibración ritual y escalado
+          AnimatedBuilder(
+            animation: Listenable.merge([_flipAnimation, _smokeController]),
+            builder: (context, child) {
+              final angle = _flipAnimation.value * math.pi;
+              final isFront = angle >= math.pi / 2;
+
+              // Efecto de levitación y temblor mágico durante la erupción de humo
+              double scale = 1.0;
+              double shakeX = 0.0;
+              double shakeY = 0.0;
+              if (_isSmokeActive) {
+                final st = _smokeController.value;
+                scale = 1.0 + (math.sin(st * math.pi) * 0.12);
+                if (st < 0.5) {
+                  final shakeIntensity = (1.0 - (st * 2.0)) * 2.5;
+                  shakeX = math.sin(st * 45) * shakeIntensity;
+                  shakeY = math.cos(st * 35) * shakeIntensity;
+                }
+              }
+
+              return Transform.translate(
+                offset: Offset(shakeX, shakeY),
+                child: Transform.scale(
+                  scale: scale,
+                  child: Transform(
+                    transform: Matrix4.identity()
+                      ..setEntry(3, 2, 0.0014)
+                      ..rotateY(angle),
+                    alignment: Alignment.center,
+                    child: isFront
+                        ? Transform(
+                            transform: Matrix4.identity()..rotateY(math.pi),
+                            alignment: Alignment.center,
+                            child: _buildCardSprite(
+                                orden, imageUrl, displayWidth, displayHeight),
+                          )
+                        : _buildBackSprite(displayWidth, displayHeight),
+                  ),
+                ),
+              );
+            },
+          ),
+
+          // 3. Erupción de Humo Ritual, Destello Dorado y Chispas Volumétricas
+          Positioned(
+            left: -50,
+            right: -50,
+            top: -45,
+            bottom: -35,
+            child: IgnorePointer(
+              child: RepaintBoundary(
+                child: AnimatedBuilder(
+                  animation:
+                      Listenable.merge([_smokeController, _flashController]),
+                  builder: (context, _) {
+                    if (!_isSmokeActive) return const SizedBox.shrink();
+                    return CustomPaint(
+                      painter: _SmokeEruptionPainter(
+                        progress: _smokeController.value,
+                        particles: _smokeParticles,
+                        embers: _emberParticles,
+                        flashProgress: _flashController.value,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -2016,7 +2209,7 @@ class _CartaDelDiaState extends State<_CartaDelDia>
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildAnimatedCard(orden, imageUrl),
+                _buildMysticCardStack(orden, imageUrl),
                 const SizedBox(width: 16),
                 Expanded(
                   child: _isRevealed
@@ -2025,12 +2218,12 @@ class _CartaDelDiaState extends State<_CartaDelDia>
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Row(
+                              Row(
                                 children: [
-                                  Icon(Icons.stars_rounded,
+                                  const Icon(Icons.stars_rounded,
                                       color: Color(0xFFD4A017), size: 14),
-                                  SizedBox(width: 6),
-                                  Expanded(
+                                  const SizedBox(width: 6),
+                                  const Expanded(
                                     child: Text(
                                       'ARCANO REVELADO',
                                       style: TextStyle(
@@ -2039,6 +2232,23 @@ class _CartaDelDiaState extends State<_CartaDelDia>
                                         fontSize: 10,
                                         fontWeight: FontWeight.w700,
                                         letterSpacing: 2,
+                                      ),
+                                    ),
+                                  ),
+                                  // Botón místico para invocar y repetir el ritual
+                                  InkWell(
+                                    onTap: _repetirInvocacion,
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(4.0),
+                                      child: Tooltip(
+                                        message: 'Repetir revelación ritual',
+                                        child: Icon(
+                                          Icons.refresh_rounded,
+                                          size: 16,
+                                          color: AppColors.gold
+                                              .withValues(alpha: 0.75),
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -2113,7 +2323,7 @@ class _CartaDelDiaState extends State<_CartaDelDia>
                             ),
                             const SizedBox(height: 6),
                             const Text(
-                              'El velo místico aguarda. Toca para voltear tu arcano y recibir la profecía de hoy.',
+                              'El velo místico aguarda. Toca para invocar la bruma ritual y recibir la profecía de hoy.',
                               style: TextStyle(
                                 fontFamily: 'Inter',
                                 color: Colors.white70,
@@ -2122,39 +2332,44 @@ class _CartaDelDiaState extends State<_CartaDelDia>
                               ),
                             ),
                             const SizedBox(height: 10),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 6),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(8),
-                                gradient: const LinearGradient(
-                                  colors: [
-                                    Color(0xFF8B0000),
-                                    Color(0xFFB71C1C)
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(8),
+                                  gradient: const LinearGradient(
+                                    colors: [
+                                      Color(0xFF8B0000),
+                                      Color(0xFFB71C1C),
+                                    ],
+                                  ),
+                                  border: Border.all(
+                                    color:
+                                        AppColors.gold.withValues(alpha: 0.6),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.touch_app_rounded,
+                                        size: 13, color: AppColors.goldLight),
+                                    SizedBox(width: 5),
+                                    Text(
+                                      'TOCAR PARA REVELAR',
+                                      style: TextStyle(
+                                        fontFamily: 'Cinzel',
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 1,
+                                      ),
+                                    ),
                                   ],
                                 ),
-                                border: Border.all(
-                                  color: AppColors.gold.withValues(alpha: 0.6),
-                                  width: 1,
-                                ),
-                              ),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.touch_app_rounded,
-                                      size: 13, color: AppColors.goldLight),
-                                  SizedBox(width: 5),
-                                  Text(
-                                    'TOCAR PARA REVELAR',
-                                    style: TextStyle(
-                                      fontFamily: 'Cinzel',
-                                      color: Colors.white,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: 1,
-                                    ),
-                                  ),
-                                ],
                               ),
                             ),
                           ],
@@ -2167,4 +2382,201 @@ class _CartaDelDiaState extends State<_CartaDelDia>
       },
     );
   }
+}
+
+// ─── Clases y Pintores para la Erupción de Humo y Bruma Ritual ──────────────
+
+class _SmokeParticle {
+  final double angle;
+  final double speed;
+  final double baseRadius;
+  final double delay;
+  final Color color;
+  final double verticalDrift;
+  final double expansion;
+  final double swirl;
+
+  _SmokeParticle({
+    required this.angle,
+    required this.speed,
+    required this.baseRadius,
+    required this.delay,
+    required this.color,
+    required this.verticalDrift,
+    required this.expansion,
+    required this.swirl,
+  });
+}
+
+class _EmberParticle {
+  final double x;
+  final double y;
+  final double speed;
+  final double size;
+  final double swaySpeed;
+  final double swayAmp;
+  final Color color;
+
+  _EmberParticle({
+    required this.x,
+    required this.y,
+    required this.speed,
+    required this.size,
+    required this.swaySpeed,
+    required this.swayAmp,
+    required this.color,
+  });
+}
+
+/// Pintor de la erupción de humo ritual, niebla y chispas alquímicas
+class _SmokeEruptionPainter extends CustomPainter {
+  final double progress;
+  final List<_SmokeParticle> particles;
+  final List<_EmberParticle> embers;
+  final double flashProgress;
+
+  _SmokeEruptionPainter({
+    required this.progress,
+    required this.particles,
+    required this.embers,
+    required this.flashProgress,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (progress <= 0.0 || progress >= 1.0) return;
+
+    final center = Offset(size.width / 2, size.height / 2);
+
+    // 1. Dibujar bocanadas de humo volumétrico
+    for (final p in particles) {
+      if (progress < p.delay) continue;
+      final localT = ((progress - p.delay) / (1.0 - p.delay)).clamp(0.0, 1.0);
+
+      // Expansión radial de la nube de humo
+      final currentRadius = p.baseRadius * (1.0 + localT * p.expansion);
+
+      // Movimiento con desaceleración y vaivén espiral
+      final dist = p.speed * math.pow(localT, 0.72);
+      final currentAngle = p.angle + (p.swirl * localT);
+      final dx = math.cos(currentAngle) * dist;
+      final dy = math.sin(currentAngle) * dist - (localT * p.verticalDrift);
+
+      final pos = center + Offset(dx, dy);
+
+      // Curva de opacidad: densa al inicio, se disipa con elegancia mística
+      double alpha;
+      if (localT < 0.22) {
+        alpha = localT / 0.22;
+      } else if (localT < 0.50) {
+        alpha = 1.0;
+      } else {
+        alpha = 1.0 - ((localT - 0.50) / 0.50);
+      }
+      alpha = alpha.clamp(0.0, 1.0) * 0.42;
+
+      if (alpha <= 0.008) continue;
+
+      // Volumetría en 3 capas concéntricas (halo exterior, medio, núcleo denso)
+      canvas.drawCircle(
+        pos,
+        currentRadius,
+        Paint()..color = p.color.withValues(alpha: alpha * 0.28),
+      );
+      canvas.drawCircle(
+        pos + Offset(currentRadius * 0.15, -currentRadius * 0.10),
+        currentRadius * 0.65,
+        Paint()..color = p.color.withValues(alpha: alpha * 0.55),
+      );
+      canvas.drawCircle(
+        pos + Offset(-currentRadius * 0.10, currentRadius * 0.08),
+        currentRadius * 0.38,
+        Paint()..color = p.color.withValues(alpha: alpha * 0.82),
+      );
+    }
+
+    // 2. Destello dorado en anillo (Onda expansiva sagrada al transmutar la carta)
+    if (flashProgress > 0.0 && flashProgress < 1.0) {
+      final ringRadius =
+          (size.width * 0.25) + (flashProgress * size.width * 0.65);
+      final ringAlpha = (1.0 - flashProgress).clamp(0.0, 1.0) * 0.85;
+      final ringPaint = Paint()
+        ..color = const Color(0xFFFFD700).withValues(alpha: ringAlpha)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3.5 * (1.0 - flashProgress);
+      canvas.drawCircle(center, ringRadius, ringPaint);
+    }
+
+    // 3. Brasas y chispas doradas que ascienden flotando
+    for (final ember in embers) {
+      final emberT = ((progress - 0.12) / 0.88).clamp(0.0, 1.0);
+      if (emberT <= 0.0) continue;
+
+      final sway = math.sin((emberT * 6.5 + ember.swaySpeed) * math.pi) *
+          ember.swayAmp;
+      final ex = center.dx + (ember.x * size.width) + sway;
+      final ey = center.dy +
+          (ember.y * size.height * 0.5) -
+          (emberT * ember.speed * size.height * 0.85);
+
+      final emberAlpha = (math.sin(emberT * math.pi)).clamp(0.0, 1.0);
+      if (emberAlpha <= 0.03) continue;
+
+      // Halo de brillo
+      canvas.drawCircle(
+        Offset(ex, ey),
+        ember.size * 2.2,
+        Paint()..color = ember.color.withValues(alpha: emberAlpha * 0.38),
+      );
+      // Núcleo brillante
+      canvas.drawCircle(
+        Offset(ex, ey),
+        ember.size,
+        Paint()..color = Colors.white.withValues(alpha: emberAlpha * 0.95),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _SmokeEruptionPainter old) =>
+      old.progress != progress || old.flashProgress != flashProgress;
+}
+
+/// Humo sutil y tenue que flota alrededor del reverso de la carta en espera
+class _AmbientCardSmokePainter extends CustomPainter {
+  final double t;
+  _AmbientCardSmokePainter(this.t);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.isEmpty) return;
+    for (int i = 0; i < 5; i++) {
+      final seed = i * 0.20;
+      final p = (t + seed) % 1.0;
+      final sway = math.sin((p * 2.5 + seed * 4) * math.pi) * 14.0;
+      final x = (size.width * 0.25 + (i % 3) * (size.width * 0.28)) + sway;
+      final y = size.height * (1.05 - p * 1.15);
+
+      final alpha = (math.sin(p * math.pi) * 0.20).clamp(0.0, 1.0);
+      if (alpha <= 0.01) continue;
+
+      final r = 12.0 + p * 18.0;
+      final color =
+          i % 2 == 0 ? const Color(0xFF6B2E7A) : const Color(0xFF8B0000);
+
+      canvas.drawCircle(
+        Offset(x, y),
+        r,
+        Paint()..color = color.withValues(alpha: alpha * 0.35),
+      );
+      canvas.drawCircle(
+        Offset(x + 2, y - 2),
+        r * 0.6,
+        Paint()..color = const Color(0xFFD4AF37).withValues(alpha: alpha * 0.22),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _AmbientCardSmokePainter old) => old.t != t;
 }
